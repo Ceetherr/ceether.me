@@ -1,5 +1,7 @@
 import { Article, TopicInfo } from '../types';
-
+import authorPortrait from "../assets/images/author_portrait.jpg";
+import writingDesk from "../assets/images/writing_desk_journal_1794089723196.jpg";
+import nightSky from "../assets/images/philosophy_night_sky_1794089723016.jpg";
 export const TOPICS: TopicInfo[] = [
   {
     id: 'all',
@@ -36,7 +38,7 @@ export const AUTHOR_BIO = {
   bioFull: `باور دارم که انسان معاصر، بیش از هر زمان دیگر، به فضاهایی آرام و بی‌پیرایه نیاز دارد؛ جایی برای ایستادن، تنفس کردن و نگریستن به افکار پیش از آنکه در هیاهوی اعلان‌ها محو شوند.
 
 این وبگاه دفتر یادداشت‌های باز من است؛ نه مجله‌ای خبری با ادعای پوشش لحظه‌ای، بلکه فضایی متاملانه برای نوشتن جستارهایی که مایل باشم ده سال دیگر هم پای آن‌ها بایستم.`,
-  portrait: '/src/assets/images/author_portrait.jpg',
+  portrait: authorPortrait,
   telegramUrl: 'https://t.me/ceether',
   twitterUrl: 'https://twitter.com',
   githubUrl: 'https://github.com',
@@ -57,7 +59,7 @@ export const ARTICLES: Article[] = [
     rawDate: '2026-03-08',
     readingTimeMinutes: 8,
     wordCount: 1420,
-    featuredImage: '/src/assets/images/writing_desk_journal_1794089723196.jpg',
+    featuredImage: writingDesk,
     featuredImageCaption: 'میز کار، قلم و کاغذ؛ ساحت‌هایی برای ایستادن در برابر جریان شتابنده‌ی فوریت دیجیتال.',
     sections: [
       {
@@ -139,7 +141,7 @@ export const ARTICLES: Article[] = [
     rawDate: '2026-02-01',
     readingTimeMinutes: 9,
     wordCount: 1610,
-    featuredImage: '/src/assets/images/philosophy_night_sky_1794089723016.jpg',
+    featuredImage: nightSky,
     featuredImageCaption: 'رصدخانه‌ای قدیمی زیر باران نور ستارگان؛ یادآور روزهایی که آسمان شب بخشی از هویت انسان بود.',
     sections: [
       {
@@ -177,7 +179,7 @@ export const ARTICLES: Article[] = [
     rawDate: '2026-01-14',
     readingTimeMinutes: 6,
     wordCount: 1100,
-    featuredImage: '/src/assets/images/writing_desk_journal_1794089723196.jpg',
+    featuredImage: writingDesk,
     featuredImageCaption: 'جوهر بر کاغذ ردپایی از لرزش دست و حال‌وهوای لحظه بر جا می‌گذارد؛ ردی که دکمه‌های کیبورد هرگز ثبت نمی‌کنند.',
     sections: [
       {
