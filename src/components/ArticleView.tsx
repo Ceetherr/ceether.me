@@ -293,7 +293,24 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
                 </div>
               );
             }
-
+            if (sec.type === 'image') {
+  return (
+    <figure key={idx} className="my-8">
+      <div className="rounded-xl overflow-hidden border border-[var(--border-subtle)] bg-[var(--bg-surface)]">
+        <img
+          src={sec.imageUrl}
+          alt={sec.caption || article.title}
+          className="w-full h-auto object-cover max-h-[480px]"
+        />
+      </div>
+      {sec.caption && (
+        <figcaption className="text-xs text-center text-[var(--text-muted)] mt-2.5 font-serif-persian italic">
+          {sec.caption}
+        </figcaption>
+      )}
+    </figure>
+  );
+}
             // Default: Paragraph
             return (
               <p key={idx} className="leading-[2.05]">
