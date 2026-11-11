@@ -45,31 +45,14 @@ export const AboutPage: React.FC = () => {
         {/* Longform Personal Essay / Manifesto */}
         <section className="mb-14">
           <h2 className="font-serif-persian text-2xl font-bold text-[var(--text-primary)] mb-4">
-            چرا می‌نویسم؟
+            چرا اینجام؟
           </h2>
           <div className="persian-prose text-[var(--text-secondary)] leading-[2.1] space-y-4">
             <p>
-              نوشتن برای من تلاشی است برای وضوح بخشیدن به مهِ پراکنده‌ی افکار. در جهانی که با سیل بی‌امان داده‌ها، اعلان‌های فوری و قطبی‌سازی‌های شتابزده احاطه شده‌ایم، یافتن فضایی برای ایستادن و آهسته اندیشیدن به یک ضرورت حیاتی بدل شده است.
+             حوصله ی متن های خشک و رسمی رو ندارم.حقیقتش اینه مغزم مدام به چیزهایی گیر میده که خیلی ها راحت از کنارش رد میشن.
             </p>
             <p>
-              علاقه‌ی من نه در حبس شدن در عاج دانایی انتزاعی است و نه در غرق شدن در روزمرگی‌های سطحی؛ بلکه در پیوند زدن میان چهار ساحت است:
-            </p>
-            <ul className="list-disc pr-5 space-y-2 my-4 text-sm sm:text-base text-[var(--text-primary)]">
-              <li>
-                <strong className="text-[var(--accent)]">فلسفه:</strong> برای یادآوری پرسش‌های ازلی درباره‌ی حقیقت، رنج و معنای زندگی خوب.
-              </li>
-              <li>
-                <strong className="text-[var(--accent)]">علم و کیهان:</strong> برای حفظ حس حیرت در برابر نظم شگفت‌انگیز طبیعت و تواضع در برابر جهان بیکران.
-              </li>
-              <li>
-                <strong className="text-[var(--accent)]">فناوری و جامعه:</strong> برای واکاوی نقادانه‌ی تاثیری که ابزارها و الگوریتم‌ها بر روان و آزادی انسان می‌گذارند.
-              </li>
-              <li>
-                <strong className="text-[var(--accent)]">تاملات زیسته:</strong> برای پاسداشت زیبایی‌های کوچک زندگی، کتاب‌خوانی‌های دیرهنگام و دست‌خط‌هایی که روی کاغذ می‌مانند.
-              </li>
-            </ul>
-            <p>
-              این وبگاه نه یک رسانه‌ی خبری است و نه یک پایگاه تجاری؛ بلکه پنجره‌ای است گشوده به گفتگویی آرام با هر آن‌کس که هنوز به قدرت کلمات و تامل عمیق باور دارد.
+             اینجا دفتر یادداشت منه. هر کتابی که میخونم ، به یه معما برمیخورم یا فکری دست از سرم برنمیداره، میشینم و سعی میکنم ساده ترین زبان ممکن برای خودم و هر ذهن کنجکاوی که سر از اینجا درمیاره بنویسمش.
             </p>
           </div>
         </section>
@@ -117,7 +100,7 @@ export const AboutPage: React.FC = () => {
             پیوند و هم‌صحبتی
           </h2>
           <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-6">
-            اگر سطری از این دفتر شما را به فکر واداشته یا مایل به گفتگویی پیرامون این موضوعات هستید، بسیار خوشحال خواهم شد پیامتان را بخوانم:
+           اگر خوشگلین پیام بدین.
           </p>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -128,25 +111,9 @@ export const AboutPage: React.FC = () => {
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs sm:text-sm font-medium transition-colors"
             >
               <Send className="w-4 h-4 rotate-180" />
-              <span>عضویت در کانال تلگرام</span>
+              <span>پیام</span>
             </a>
 
-            <button
-              onClick={handleCopyEmail}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-primary)] text-xs sm:text-sm font-medium hover:border-[var(--accent)] transition-colors cursor-pointer"
-            >
-              {copiedEmail ? (
-                <>
-                  <Check className="w-4 h-4 text-emerald-600" />
-                  <span>آدرس ایمیل کپی شد</span>
-                </>
-              ) : (
-                <>
-                  <Mail className="w-4 h-4 text-[var(--text-muted)]" />
-                  <span className="font-mono text-xs">{contactEmail}</span>
-                </>
-              )}
-            </button>
           </div>
         </section>
       </div>

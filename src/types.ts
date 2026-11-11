@@ -1,4 +1,5 @@
 export type TopicId = 'all' | 'philosophy' | 'science' | 'technology' | 'reflections';
+export type ThemeMode = 'paper' | 'parchment' | 'night';
 
 export interface TopicInfo {
   id: TopicId;
@@ -32,4 +33,25 @@ export interface Article {
   featuredImage?: string;
   featuredImageCaption?: string;
   sections: ArticleContentSection[];
+  footnotes?: Footnote[];
+}
+
+export interface Footnote {
+  id: string;
+  term?: string;
+  content: string;
+}
+
+export interface AuthorBio {
+  name: string;
+  title: string;
+  greeting: string;
+  bioShort: string;
+  bioFull: string;
+  portrait: string;
+  telegramUrl?: string;
+  githubUrl?: string;
+  twitterUrl?: string;
+  youtubeUrl?: string;
+  quote: string;
 }

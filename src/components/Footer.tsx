@@ -33,15 +33,6 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               </a>
               <span aria-hidden="true" className="text-[var(--border-subtle)]">/</span>
               <a
-                href={AUTHOR_BIO.twitterUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-[var(--accent)] transition-colors underline-offset-4 hover:underline"
-              >
-                ایکس (توییتر)
-              </a>
-              <span aria-hidden="true" className="text-[var(--border-subtle)]">/</span>
-              <a
                 href={AUTHOR_BIO.githubUrl}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -50,14 +41,6 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                 گیت‌هاب
               </a>
               <span aria-hidden="true" className="text-[var(--border-subtle)]">/</span>
-              <a
-                href={AUTHOR_BIO.youtubeUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-[var(--accent)] transition-colors underline-offset-4 hover:underline"
-              >
-                یوتیوب
-              </a>
             </div>
 
             <div className="text-[11px] font-mono text-[var(--text-muted)]">

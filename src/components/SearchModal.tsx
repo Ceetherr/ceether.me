@@ -135,9 +135,9 @@ export const SearchModal: React.FC<SearchModalProps> = ({
           {[
             { id: 'all', label: 'همه' },
             { id: 'philosophy', label: 'فلسفه' },
-            { id: 'science', label: 'علم' },
+           /* { id: 'science', label: 'علم' },
             { id: 'technology', label: 'فناوری' },
-            { id: 'reflections', label: 'تاملات' },
+            { id: 'reflections', label: 'تاملات' },*/
           ].map((t) => (
             <button
               key={t.id}
