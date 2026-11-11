@@ -1,16 +1,13 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Sun, Moon, Send, Menu, X, BookOpen, Layers, User, Search, Bookmark } from 'lucide-react';
 import { AUTHOR_BIO } from '../data/articles';
 import { toPersianDigits } from '../utils/persian';
-import { ThemeMode } from '../types';
 
 interface HeaderProps {
   currentView: string;
   onNavigate: (view: string, param?: string) => void;
   isDark: boolean;
   onToggleTheme: () => void;
-  currentTheme?: ThemeMode;
-  onSelectTheme?: (theme: ThemeMode) => void;
   readingProgress?: number; // 0 to 100 if on article page
   onOpenSearch: () => void;
   savedCount?: number;
@@ -22,32 +19,17 @@ export const Header: React.FC<HeaderProps> = ({
   onNavigate,
   isDark,
   onToggleTheme,
-  currentTheme = 'paper',
-  onSelectTheme,
   readingProgress,
   onOpenSearch,
   savedCount = 0,
   onOpenSaved,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
-  const themeRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (themeRef.current && !themeRef.current.contains(e.target as Node)) {
-        setThemeMenuOpen(false);
-      }
-    };
-    if (themeMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [themeMenuOpen]);
 
   const navItems = [
     { id: 'home', label: 'صفحه اصلی' },
-    { id: 'articles', label: 'تمامی یادداشت‌ها' },
+    { id: 'articles', label: 'جستارها' },
+    { id: 'topics', label: 'موضوعات' },
     { id: 'about', label: 'درباره من' },
   ];
 
@@ -56,63 +38,24 @@ export const Header: React.FC<HeaderProps> = ({
     setMobileMenuOpen(false);
   };
 
-  const themes: Array<{
-    id: ThemeMode;
-    label: string;
-    desc: string;
-    previewBg: string;
-    previewBorder: string;
-    icon: React.ReactNode;
-  }> = [
-    {
-      id: 'paper',
-      label: 'کاغذی',
-      desc: 'روشن طبیعی',
-      previewBg: '#f6f1e7',
-      previewBorder: '#d6d0c4',
-      icon: <Sun className="w-3.5 h-3.5 text-amber-600" />,
-    },
-    {
-      id: 'parchment',
-      label: 'پوست‌آهو',
-      desc: 'کاهی کهن',
-      previewBg: '#ebe1cd',
-      previewBorder: '#c5b597',
-      icon: <BookOpen className="w-3.5 h-3.5 text-amber-800" />,
-    },
-    {
-      id: 'night',
-      label: 'شب',
-      desc: 'تیره تحریریه',
-      previewBg: '#0a0a0a',
-      previewBorder: '#2d2b27',
-      icon: <Moon className="w-3.5 h-3.5 text-slate-300" />,
-    },
-  ];
-
-  const currentThemeObj = themes.find((t) => t.id === currentTheme) || themes[0];
-
   return (
-    <header className="sticky top-0 z-30 w-full bg-[var(--bg-page)]/90 backdrop-blur-md border-b border-[var(--border-divider)] transition-colors duration-200">
-      {/* Reading Progress Indicator Bar */}
-      {typeof readingProgress === 'number' && (
-        <div
-          role="progressbar"
-          aria-valuenow={Math.round(readingProgress)}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-label="پیشرفت مطالعه جستار"
-          className="absolute top-0 right-0 left-0 h-[2px] bg-transparent"
-        >
+    <header className="sticky top-0 z-40 bg-[var(--bg-page)]/90 backdrop-blur-md border-b border-[var(--border-divider)] transition-colors duration-200">
+      {/* Optional Top Reading Progress Bar for Article Reading */}
+      {typeof readingProgress === 'number' && readingProgress > 0 && (
+        <div className="absolute top-0 right-0 left-0 h-[2px] bg-[var(--border-divider)]">
           <div
             className="h-full bg-[var(--accent)] transition-all duration-150 ease-out"
-            style={{ width: `${readingProgress}%` }}
+            style={{ width: `${Math.min(100, Math.max(0, readingProgress))}%` }}
+            role="progressbar"
+            aria-valuenow={Math.round(readingProgress)}
+            aria-valuemin={0}
+            aria-valuemax={100}
           />
         </div>
       )}
 
-      <div className="max-w-5xl mx-auto px-5 sm:px-8 h-18 flex items-center justify-between gap-4">
-        {/* Zone 1: Brand & Logo Title */}
+      <div className="max-w-5xl mx-auto px-5 sm:px-8 h-18 flex items-center justify-between gap-6">
+        {/* Zone 1: Site Brand / Name in display serif */}
         <button
           onClick={() => handleNavClick('home')}
           className="text-right group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] rounded"
@@ -145,7 +88,7 @@ export const Header: React.FC<HeaderProps> = ({
           })}
         </nav>
 
-        {/* Zone 3: Actions - Search + Bookmarks + Telegram + Theme Selector + Mobile Menu */}
+        {/* Zone 3: Actions - Search + Bookmarks + Telegram + Theme Toggle + Mobile Menu */}
         <div className="flex items-center gap-1.5 sm:gap-2.5">
           {/* Search Trigger Button */}
           <button
@@ -155,95 +98,52 @@ export const Header: React.FC<HeaderProps> = ({
             className="flex items-center gap-2 px-2.5 py-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] bg-[var(--bg-surface)]/70 hover:bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-md transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
           >
             <Search className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline font-body-persian">جستجو...</span>
-            <kbd className="hidden sm:inline-block font-mono text-[10px] text-[var(--text-muted)] bg-[var(--bg-page)] px-1 py-0.5 rounded border border-[var(--border-subtle)]">
+            <span className="hidden lg:inline text-[11px] font-body-persian">جستجو...</span>
+            <kbd className="hidden lg:inline font-mono text-[9px] bg-[var(--bg-page)] border border-[var(--border-subtle)] px-1 rounded text-[var(--text-muted)]">
               ⌘K
             </kbd>
           </button>
 
-          {/* Bookmarks / Saved Drawer Button */}
-          {onOpenSaved && (
-            <button
-              onClick={onOpenSaved}
-              aria-label="یادداشت‌های نشان‌شده"
-              title="نشان‌های من"
-              className="relative p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)] border border-transparent hover:border-[var(--border-divider)] rounded-md transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-            >
-              <Bookmark className="w-4 h-4" />
-              {savedCount > 0 && (
-                <span className="absolute -top-1 -right-1 font-mono text-[10px] w-4 h-4 rounded-full bg-[var(--accent)] text-white flex items-center justify-center font-bold">
-                  {toPersianDigits(savedCount)}
-                </span>
-              )}
-            </button>
-          )}
+          {/* Bookmarks / Saved Essays Drawer Trigger Button */}
+          <button
+            onClick={onOpenSaved}
+            aria-label="یادداشت‌های نشان‌شده"
+            title={savedCount > 0 ? `${toPersianDigits(savedCount)} یادداشت نشان‌شده` : 'یادداشت‌های نشان‌شده'}
+            className="relative p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)] border border-transparent hover:border-[var(--border-divider)] rounded-md transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+          >
+            <Bookmark className={`w-4 h-4 ${savedCount > 0 ? 'fill-[var(--accent)] text-[var(--accent)]' : ''}`} />
+            {savedCount > 0 && (
+              <span className="absolute -top-1 -left-1 min-w-4 h-4 px-1 rounded-full bg-[var(--accent)] text-white font-mono text-[9px] flex items-center justify-center font-bold shadow-xs">
+                {toPersianDigits(savedCount)}
+              </span>
+            )}
+          </button>
 
-          {/* Quiet Telegram Ghost Link */}
+          {/* Telegram Channel Ghost Button */}
           <a
             href={AUTHOR_BIO.telegramUrl}
             target="_blank"
             rel="noopener noreferrer"
-            title="کانال تلگرام سیدر"
-            className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--accent)] hover:bg-[var(--bg-surface)] border border-transparent hover:border-[var(--border-divider)] rounded-md transition-colors"
+            title="عضویت در کانال تلگرام"
+            className="hidden sm:inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--accent)] bg-transparent hover:bg-[var(--accent-surface)] border border-[var(--border-subtle)] hover:border-[var(--accent)] rounded-md transition-all duration-150"
           >
             <Send className="w-3.5 h-3.5 rotate-180" />
-            <span>تلگرام</span>
+            <span>کانال تلگرام</span>
           </a>
 
-          {/* Theme Palette Dropdown Popover */}
-          <div className="relative" ref={themeRef}>
-            <button
-              onClick={() => setThemeMenuOpen(!themeMenuOpen)}
-              aria-label="تغییر پوسته بصری"
-              title={`پوسته فعلی: ${currentThemeObj.label}`}
-              className="flex items-center gap-1.5 p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)] border border-transparent hover:border-[var(--border-divider)] rounded-md transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-            >
-              {currentThemeObj.icon}
-              <span
-                style={{ backgroundColor: currentThemeObj.previewBg, borderColor: currentThemeObj.previewBorder }}
-                className="w-2.5 h-2.5 rounded-full border hidden sm:inline-block"
-              />
-            </button>
-
-            {themeMenuOpen && (
-              <div className="absolute top-full mt-2 left-0 sm:left-auto sm:right-0 z-40 w-48 p-2 rounded-xl bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] shadow-xl text-right animate-in fade-in zoom-in-95 duration-100">
-                <div className="text-[11px] font-semibold text-[var(--text-muted)] px-2 py-1 mb-1 border-b border-[var(--border-divider)]">
-                  انتخاب پوسته کاغذ
-                </div>
-
-                <div className="space-y-1">
-                  {themes.map((t) => {
-                    const isSelected = currentTheme === t.id;
-                    return (
-                      <button
-                        key={t.id}
-                        onClick={() => {
-                          if (onSelectTheme) onSelectTheme(t.id);
-                          setThemeMenuOpen(false);
-                        }}
-                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
-                          isSelected
-                            ? 'bg-[var(--accent-surface)] text-[var(--accent)] font-bold'
-                            : 'text-[var(--text-primary)] hover:bg-[var(--bg-surface)]'
-                        }`}
-                      >
-                        <span className="flex items-center gap-2">
-                          <span
-                            style={{ backgroundColor: t.previewBg, borderColor: t.previewBorder }}
-                            className="w-3 h-3 rounded-full border shadow-2xs shrink-0"
-                          />
-                          <span>{t.label}</span>
-                        </span>
-                        <span className="text-[10px] text-[var(--text-muted)] font-normal">
-                          {t.desc}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+          {/* Theme Toggle Button */}
+          <button
+            onClick={onToggleTheme}
+            aria-label={isDark ? 'تغییر به پوسته روشن (کاغذی)' : 'تغییر به پوسته تاریک'}
+            title={isDark ? 'پوسته کاغذی' : 'پوسته شب'}
+            className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)] border border-transparent hover:border-[var(--border-divider)] rounded-md transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+          >
+            {isDark ? (
+              <Sun className="w-4 h-4 text-amber-400" />
+            ) : (
+              <Moon className="w-4 h-4 text-[var(--text-secondary)]" />
             )}
-          </div>
+          </button>
 
           {/* Mobile Hamburger Button */}
           <button
@@ -258,7 +158,7 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-[var(--border-divider)] bg-[var(--bg-page)] px-5 py-4 space-y-3">
+        <div className="md:hidden border-t border-[var(--border-divider)] bg-[var(--bg-page)] px-5 py-4 space-y-2">
           {/* Mobile Search Button */}
           <button
             onClick={() => {
@@ -276,52 +176,36 @@ export const Header: React.FC<HeaderProps> = ({
             </kbd>
           </button>
 
-          {/* Mobile Theme Selector Strip */}
-          <div className="p-2 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-divider)]">
-            <div className="text-[11px] text-[var(--text-muted)] mb-1.5 text-right font-medium">
-              پوسته و کاغذ مطالعه:
-            </div>
-            <div className="grid grid-cols-3 gap-1.5 text-center text-[11px]">
-              {themes.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => {
-                    if (onSelectTheme) onSelectTheme(t.id);
-                  }}
-                  className={`py-1.5 px-1 rounded flex flex-col items-center gap-1 transition-colors cursor-pointer ${
-                    currentTheme === t.id
-                      ? 'bg-[var(--bg-page)] text-[var(--accent)] font-bold shadow-xs'
-                      : 'text-[var(--text-secondary)]'
-                  }`}
-                >
-                  <span
-                    style={{ backgroundColor: t.previewBg, borderColor: t.previewBorder }}
-                    className="w-3.5 h-3.5 rounded-full border shadow-2xs"
-                  />
-                  <span>{t.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* Mobile Saved Essays Button */}
+          <button
+            onClick={() => {
+              if (onOpenSaved) onOpenSaved();
+              setMobileMenuOpen(false);
+            }}
+            className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-divider)] text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] mb-3"
+          >
+            <span className="flex items-center gap-2">
+              <Bookmark className="w-4 h-4 text-[var(--accent)]" />
+              یادداشت‌های نشان‌شده
+            </span>
+            <span className="font-mono text-[10px] bg-[var(--accent-surface)] text-[var(--accent)] px-2 py-0.5 rounded-full font-bold">
+              {toPersianDigits(savedCount)}
+            </span>
+          </button>
 
-          {/* Mobile Nav Links */}
-          <div className="pt-2 border-t border-[var(--border-divider)] space-y-1">
-            {navItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => handleNavClick(item.id)}
-                className={`w-full text-right px-3 py-2 rounded-md text-sm transition-colors cursor-pointer ${
-                  currentView === item.id
-                    ? 'bg-[var(--accent-surface)] text-[var(--accent)] font-semibold'
-                    : 'text-[var(--text-primary)] hover:bg-[var(--bg-surface)]'
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Mobile Telegram Link */}
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => handleNavClick(item.id)}
+              className={`w-full text-right px-3 py-2.5 rounded text-sm transition-colors cursor-pointer ${
+                currentView === item.id
+                  ? 'bg-[var(--accent-surface)] text-[var(--accent)] font-semibold'
+                  : 'text-[var(--text-secondary)] hover:bg-[var(--bg-surface)]'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
           <div className="pt-2 border-t border-[var(--border-divider)]">
             <a
               href={AUTHOR_BIO.telegramUrl}
@@ -333,7 +217,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <Send className="w-3.5 h-3.5 rotate-180" />
                 کانال تلگرام سیدر (Ceether)
               </span>
-              <span className="font-mono text-[10px]">t.me/ceether</span>
+              <span className="font-mono text-[10px]">t.me/arash_notes</span>
             </a>
           </div>
         </div>

@@ -9,7 +9,7 @@ import { TopicPage } from './components/TopicPage';
 import { AboutPage } from './components/AboutPage';
 import { Footer } from './components/Footer';
 import { ARTICLES, TOPICS, AUTHOR_BIO } from './data/articles';
-import { Article, TopicId, ThemeMode } from './types';
+import { Article, TopicId } from './types';
 import { SearchModal } from './components/SearchModal';
 import { SavedArticlesDrawer } from './components/SavedArticlesDrawer';
 import { useBookmarks } from './hooks/useBookmarks';
@@ -19,20 +19,12 @@ import { toPersianDigits } from './utils/persian';
 type ViewMode = 'home' | 'articles' | 'topic' | 'article' | 'about';
 
 export default function App() {
-  // Theme state: 3 curated paper & dark palettes
-  const [currentTheme, setCurrentTheme] = useState<ThemeMode>(() => {
+  // Theme state: default paper light or dark
+  const [isDark, setIsDark] = useState<boolean>(() => {
     const saved = localStorage.getItem('persian_journal_theme');
-    if (saved === 'paper' || saved === 'parchment' || saved === 'night') {
-      return saved;
-    }
-    if (saved === 'dark') return 'night';
-    if (saved === 'light') return 'paper';
-    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-      ? 'night'
-      : 'paper';
+    if (saved) return saved === 'dark';
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
-
-  const isDark = currentTheme === 'night';
 
   // Current view routing
   const [currentView, setCurrentView] = useState<ViewMode>('home');
@@ -41,7 +33,6 @@ export default function App() {
   const [readingProgress, setReadingProgress] = useState<number>(0);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [isSavedDrawerOpen, setIsSavedDrawerOpen] = useState(false);
-  const [isFocusMode, setIsFocusMode] = useState(false);
 
   // Persistent bookmarks and reading list
   const {
@@ -75,21 +66,19 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Sync theme to document.documentElement
+  // Sync theme class to document.documentElement
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', currentTheme);
-    if (currentTheme === 'night') {
+    if (isDark) {
       document.documentElement.classList.add('dark');
+      localStorage.setItem('persian_journal_theme', 'dark');
     } else {
       document.documentElement.classList.remove('dark');
+      localStorage.setItem('persian_journal_theme', 'light');
     }
-    localStorage.setItem('persian_journal_theme', currentTheme);
-  }, [currentTheme]);
+  }, [isDark]);
 
   const toggleTheme = () => {
-    const order: ThemeMode[] = ['paper', 'parchment', 'night'];
-    const nextIdx = (order.indexOf(currentTheme) + 1) % order.length;
-    setCurrentTheme(order[nextIdx]);
+    setIsDark((prev) => !prev);
   };
 
   // Article count per topic
@@ -119,7 +108,6 @@ export default function App() {
 
   // Navigate handler
   const handleNavigate = (view: string, param?: string) => {
-    setIsFocusMode(false);
     if (view === 'home') {
       setCurrentView('home');
       setActiveArticle(null);
@@ -146,7 +134,6 @@ export default function App() {
   };
 
   const handleSelectArticle = (article: Article) => {
-    setIsFocusMode(false);
     setActiveArticle(article);
     setCurrentView('article');
     setReadingProgress(0);
@@ -169,20 +156,16 @@ export default function App() {
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg-page)] text-[var(--text-primary)] transition-colors duration-200">
       {/* Sticky Header with 3 zones, Theme Toggle, Telegram Ghost Button, and Search */}
-      {!(currentView === 'article' && isFocusMode) && (
-        <Header
-          currentView={currentView}
-          onNavigate={handleNavigate}
-          isDark={isDark}
-          onToggleTheme={toggleTheme}
-          currentTheme={currentTheme}
-          onSelectTheme={setCurrentTheme}
-          readingProgress={currentView === 'article' ? readingProgress : undefined}
-          onOpenSearch={() => setIsSearchModalOpen(true)}
-          savedCount={savedCount}
-          onOpenSaved={() => setIsSavedDrawerOpen(true)}
-        />
-      )}
+      <Header
+        currentView={currentView}
+        onNavigate={handleNavigate}
+        isDark={isDark}
+        onToggleTheme={toggleTheme}
+        readingProgress={currentView === 'article' ? readingProgress : undefined}
+        onOpenSearch={() => setIsSearchModalOpen(true)}
+        savedCount={savedCount}
+        onOpenSaved={() => setIsSavedDrawerOpen(true)}
+      />
 
       {/* Main Content Area */}
       <main className="flex-1">
@@ -283,17 +266,12 @@ export default function App() {
           <ArticleView
             article={activeArticle}
             allArticles={ARTICLES}
-            onBack={() => {
-              setIsFocusMode(false);
-              setCurrentView('home');
-            }}
+            onBack={() => setCurrentView('home')}
             onSelectArticle={handleSelectArticle}
             onSelectTopic={handleNavigateToTopicPage}
             onScrollProgress={setReadingProgress}
             isBookmarked={isBookmarked(activeArticle.id)}
             onToggleBookmark={toggleBookmark}
-            isFocusMode={isFocusMode}
-            onToggleFocusMode={() => setIsFocusMode((prev) => !prev)}
           />
         )}
 
@@ -326,9 +304,7 @@ export default function App() {
       </main>
 
       {/* Warm Literary Footer */}
-      {!(currentView === 'article' && isFocusMode) && (
-        <Footer onNavigate={handleNavigate} />
-      )}
+      <Footer onNavigate={handleNavigate} />
 
       {/* Global Quick Search Modal */}
       <SearchModal
