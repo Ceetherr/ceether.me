@@ -1,4 +1,5 @@
 export type TopicId = 'all' | 'philosophy' | 'science' | 'technology' | 'reflections';
+export type ThemeMode = 'paper' | 'parchment' | 'night';
 
 export interface TopicInfo {
   id: TopicId;
@@ -17,6 +18,12 @@ export interface ArticleContentSection {
   language?: string;
 }
 
+export interface Footnote {
+  id: string; // e.g. "1", "2"
+  term?: string; // Optional concept name, e.g. "کوالیا (Qualia)"
+  content: string; // The footnote note or reference text
+}
+
 export interface Article {
   id: string;
   number: number; // e.g. 8 for #۰۸
@@ -32,4 +39,19 @@ export interface Article {
   featuredImage?: string;
   featuredImageCaption?: string;
   sections: ArticleContentSection[];
+  footnotes?: Footnote[];
+}
+
+export interface AuthorBio {
+  name: string;
+  title: string;
+  greeting: string;
+  bioShort: string;
+  bioFull: string;
+  portrait: string;
+  telegramUrl?: string;
+  githubUrl?: string;
+  twitterUrl?: string;
+  youtubeUrl?: string;
+  quote: string;
 }

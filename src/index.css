@@ -1,9 +1,15 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
-:root {
-  /* Warm Paper Light Theme */
+@theme {
+  --font-sans: 'Vazirmatn', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-serif: 'Markazi Text', 'Amiri', 'Traditional Arabic', serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+:root,
+html[data-theme='paper'] {
+  /* Warm Paper Light Theme (Default Light) */
   --bg-page: #f6f1e7;
   --bg-surface: #efeae0;
   --bg-surface-elevated: #faf6ef;
@@ -20,8 +26,27 @@
   --code-border: #ded5c5;
 }
 
-.dark {
-  /* Editorial Near-Black Dark Theme */
+html[data-theme='parchment'] {
+  /* Vintage Sepia Parchment Theme (کاغذ کاهی کهن) */
+  --bg-page: #ebe1cd;
+  --bg-surface: #dfd3bd;
+  --bg-surface-elevated: #f4ebd9;
+  --text-primary: #2f251c;
+  --text-secondary: #5e4f40;
+  --text-muted: #8c7b68;
+  --border-divider: #d4c5a9;
+  --border-subtle: #c5b597;
+  --accent: #873e16; /* warm saddle brown / amber ink */
+  --accent-hover: #9c4819;
+  --accent-surface: #e5d4be;
+  --accent-subtle: #d8c4ab;
+  --code-bg: #dbcdb3;
+  --code-border: #c8b99c;
+}
+
+.dark,
+html[data-theme='night'] {
+  /* Editorial Near-Black Dark Theme (Default Dark) */
   --bg-page: #0a0a0a;
   --bg-surface: #141312;
   --bg-surface-elevated: #1c1b19;
@@ -39,7 +64,7 @@
 }
 
 html {
-  font-family: 'Vazirmatn', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-sans);
   background-color: var(--bg-page);
   color: var(--text-primary);
   text-rendering: optimizeLegibility;
@@ -49,32 +74,35 @@ html {
 
 /* Persian typography adjustments */
 .font-serif-persian {
-  font-family: 'Markazi Text', 'Amiri', 'Traditional Arabic', serif;
+  font-family: var(--font-serif);
 }
 
 .font-body-persian {
-  font-family: 'Vazirmatn', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-sans);
 }
 
 .font-num-persian {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 
 /* Persian reading prose styles */
 .persian-prose {
-  line-height: 2.05;
+  font-size: var(--prose-font-size, 1.085rem);
+  line-height: var(--prose-line-height, 2.05);
   letter-spacing: -0.01em;
+  font-family: var(--prose-font-family, var(--font-sans));
 }
 
 .persian-prose p {
   margin-bottom: 1.75rem;
-  font-size: 1.085rem;
+  font-size: 1em;
+  line-height: inherit;
   color: var(--text-primary);
 }
 
 .persian-prose h2 {
-  font-family: 'Markazi Text', 'Amiri', 'Traditional Arabic', serif;
+  font-family: var(--font-serif);
   font-size: 1.75rem;
   font-weight: 600;
   margin-top: 2.75rem;
@@ -84,7 +112,7 @@ html {
 }
 
 .persian-prose h3 {
-  font-family: 'Markazi Text', 'Amiri', 'Traditional Arabic', serif;
+  font-family: var(--font-serif);
   font-size: 1.4rem;
   font-weight: 600;
   margin-top: 2rem;
