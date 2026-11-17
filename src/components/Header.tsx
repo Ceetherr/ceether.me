@@ -112,16 +112,16 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       )}
 
-      <div className="max-w-5xl mx-auto px-5 sm:px-8 h-18 flex items-center justify-between gap-4">
+      <div className="max-w-5xl mx-auto px-4 sm:px-8 h-16 sm:h-18 flex items-center justify-between gap-2 sm:gap-4">
         {/* Zone 1: Brand & Logo Title */}
         <button
           onClick={() => handleNavClick('home')}
-          className="text-right group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] rounded"
+          className="min-w-0 text-right group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] rounded"
         >
-          <span className="block font-serif-persian text-2xl sm:text-3xl font-bold tracking-tight text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">
+          <span className="block font-serif-persian text-[1.15rem] sm:text-3xl font-bold leading-tight tracking-tight text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors truncate">
             {AUTHOR_BIO.name}
           </span>
-          <span className="block text-[11px] text-[var(--text-muted)] -mt-1 font-body-persian tracking-normal">
+          <span className="block text-[10px] sm:text-[11px] leading-snug text-[var(--text-muted)] mt-0.5 sm:-mt-0.5 font-body-persian tracking-normal truncate">
             یادداشت‌ها و جستارهای شخصی
           </span>
         </button>
