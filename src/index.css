@@ -1,11 +1,6 @@
-@import "tailwindcss";
-@custom-variant dark (&:where(.dark, .dark *));
-
-@theme {
-  --font-sans: 'Vazirmatn', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-serif: 'Markazi Text', 'Amiri', 'Traditional Arabic', serif;
-  --font-mono: 'JetBrains Mono', monospace;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root,
 html[data-theme='paper'] {
