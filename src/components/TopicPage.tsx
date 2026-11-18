@@ -2,6 +2,7 @@ import React from 'react';
 import { Article, TopicId, TopicInfo } from '../types';
 import { ArticleRow } from './ArticleRow';
 import { toPersianDigits } from '../utils/persian';
+import { articleHasTopic } from '../utils/topics';
 import { ArrowRight, Compass, Sparkles, BookOpen, Layers } from 'lucide-react';
 
 interface TopicPageProps {
@@ -21,9 +22,7 @@ export const TopicPage: React.FC<TopicPageProps> = ({
   onSelectArticle,
   onBackToArticles,
 }) => {
-  const topicArticles = articles.filter((a) =>
-    topic.id === 'all' ? true : a.topicId === topic.id
-  );
+  const topicArticles = articles.filter((a) => articleHasTopic(a, topic.id));
 
   return (
     <div className="py-10 sm:py-14">

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Article, Footnote } from '../types';
 import { AUTHOR_BIO } from '../data/articles';
 import { formatArticleNumber, formatReadingTime, toPersianDigits, copyToClipboard } from '../utils/persian';
+import { getArticleTopics, articlesShareTopic } from '../utils/topics';
 import {
   ArrowRight,
   ArrowLeft,
@@ -201,9 +202,9 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
   const prevArticle = currentIndex > 0 ? allArticles[currentIndex - 1] : null; // Newer article
   const nextArticle = currentIndex < allArticles.length - 1 ? allArticles[currentIndex + 1] : null; // Older article
 
-  // Related articles (same topic or adjacent)
+  // Related articles (same/shared topic or adjacent)
   const relatedArticles = allArticles
-    .filter((a) => a.id !== article.id && (a.topicId === article.topicId || Math.abs(a.number - article.number) <= 2))
+    .filter((a) => a.id !== article.id && (articlesShareTopic(a, article) || Math.abs(a.number - article.number) <= 2))
     .slice(0, 3);
 
   const handleShare = async () => {
@@ -295,14 +296,14 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
     }
   };
 
-  // Render text containing [^1] or [1] or [^۱] or [۱] markers with clickable interactive buttons
-  const renderTextWithFootnotes = (text: string) => {
+  // Render [^1] / [1] / [۱] footnote markers inside plain text segments
+  const renderFootnoteTokens = (text: string, keyPrefix: string): React.ReactNode => {
     if (!article.footnotes || article.footnotes.length === 0) {
       return text;
     }
 
     const regex = /\[\^?([0-9۰-۹]+)\]/g;
-    const parts: (string | React.ReactNode)[] = [];
+    const parts: React.ReactNode[] = [];
     let lastIdx = 0;
     let match: RegExpExecArray | null;
 
@@ -318,7 +319,7 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
 
       parts.push(
         <button
-          key={`fn-${match.index}`}
+          key={`${keyPrefix}-fn-${match.index}`}
           type="button"
           onClick={(e) => {
             e.stopPropagation();
@@ -341,7 +342,54 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
       parts.push(text.substring(lastIdx));
     }
 
-    return parts;
+    return parts.length === 1 ? parts[0] : parts;
+  };
+
+  // Render text containing **bold**, *italic*, and [^1] / [1] / [۱] footnote markers
+  const renderTextWithFootnotes = (text: string, keyPrefix = 'txt'): React.ReactNode => {
+    const tokenRegex = /(\*\*[^*\n]+?\*\*|\*[^*\n]+?\*)/g;
+    const nodes: React.ReactNode[] = [];
+    let lastIdx = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = tokenRegex.exec(text)) !== null) {
+      if (match.index > lastIdx) {
+        nodes.push(
+          <React.Fragment key={`${keyPrefix}-p-${lastIdx}`}>
+            {renderFootnoteTokens(text.substring(lastIdx, match.index), `${keyPrefix}-p-${lastIdx}`)}
+          </React.Fragment>
+        );
+      }
+
+      const token = match[0];
+      if (token.startsWith('**') && token.endsWith('**')) {
+        const inner = token.slice(2, -2);
+        nodes.push(
+          <strong key={`${keyPrefix}-b-${match.index}`} className="font-bold text-[var(--text-primary)]">
+            {renderTextWithFootnotes(inner, `${keyPrefix}-b-${match.index}`)}
+          </strong>
+        );
+      } else if (token.startsWith('*') && token.endsWith('*')) {
+        const inner = token.slice(1, -1);
+        nodes.push(
+          <em key={`${keyPrefix}-i-${match.index}`} className="italic">
+            {renderFootnoteTokens(inner, `${keyPrefix}-i-${match.index}`)}
+          </em>
+        );
+      }
+
+      lastIdx = tokenRegex.lastIndex;
+    }
+
+    if (lastIdx < text.length) {
+      nodes.push(
+        <React.Fragment key={`${keyPrefix}-p-${lastIdx}`}>
+          {renderFootnoteTokens(text.substring(lastIdx), `${keyPrefix}-p-${lastIdx}`)}
+        </React.Fragment>
+      );
+    }
+
+    return nodes.length === 1 ? nodes[0] : nodes;
   };
 
   return (
@@ -676,12 +724,21 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
               #{formatArticleNumber(article.number)}
             </span>
             <span aria-hidden="true" className="text-[var(--border-subtle)]">/</span>
-            <button
-              onClick={() => onSelectTopic(article.topicId)}
-              className="text-[var(--accent)] hover:underline cursor-pointer font-medium"
-            >
-              {article.topicLabel}
-            </button>
+            <div className="inline-flex flex-wrap items-center gap-1.5">
+              {getArticleTopics(article).map((t, idx) => (
+                <React.Fragment key={t.id}>
+                  {idx > 0 && (
+                    <span aria-hidden="true" className="text-[var(--border-subtle)]">،</span>
+                  )}
+                  <button
+                    onClick={() => onSelectTopic(t.id)}
+                    className="text-[var(--accent)] hover:underline cursor-pointer font-medium"
+                  >
+                    {t.label}
+                  </button>
+                </React.Fragment>
+              ))}
+            </div>
             <span aria-hidden="true" className="text-[var(--border-subtle)]">·</span>
             <time className="font-mono text-[11px] text-[var(--text-secondary)]">
               {article.shamsiDate}
@@ -830,9 +887,9 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
               );
             }
 
-            // Default: Paragraph with footnote parser
+            // Default: Paragraph with footnote parser and preserved line breaks
             return (
-              <p key={idx}>
+              <p key={idx} className="whitespace-pre-line">
                 {renderTextWithFootnotes(sec.text || '')}
               </p>
             );

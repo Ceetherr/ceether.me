@@ -1,6 +1,7 @@
 import React from 'react';
 import { Article } from '../types';
-import { formatArticleNumber, formatReadingTime, toPersianDigits } from '../utils/persian';
+import { formatArticleNumber, formatReadingTime } from '../utils/persian';
+import { getArticleTopics } from '../utils/topics';
 import { HighlightedText } from './HighlightedText';
 
 interface ArticleRowProps {
@@ -8,6 +9,7 @@ interface ArticleRowProps {
   onSelect: (article: Article) => void;
   onSelectTopic?: (topicId: Article['topicId']) => void;
   searchQuery?: string;
+  matchSnippet?: string | null;
 }
 
 export const ArticleRow: React.FC<ArticleRowProps> = ({
@@ -15,7 +17,10 @@ export const ArticleRow: React.FC<ArticleRowProps> = ({
   onSelect,
   onSelectTopic,
   searchQuery,
+  matchSnippet,
 }) => {
+  const topics = getArticleTopics(article);
+
   return (
     <article className="group relative border-b border-[var(--border-divider)] py-6 sm:py-7 transition-colors hover:bg-[var(--bg-surface)]/50 px-2 sm:px-4 rounded-lg -mx-2 sm:-mx-4 cursor-pointer">
       <div className="flex items-start gap-4 sm:gap-6">
@@ -30,15 +35,24 @@ export const ArticleRow: React.FC<ArticleRowProps> = ({
         <div className="flex-1 min-w-0">
           {/* Metadata line above title (Clean unboxed typography) */}
           <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)] mb-1.5 font-body-persian">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onSelectTopic) onSelectTopic(article.topicId);
-              }}
-              className="text-[var(--accent)] hover:underline cursor-pointer font-medium"
-            >
-              {article.topicLabel}
-            </button>
+            <div className="inline-flex flex-wrap items-center gap-1.5">
+              {topics.map((t, idx) => (
+                <React.Fragment key={t.id}>
+                  {idx > 0 && (
+                    <span aria-hidden="true" className="text-[var(--border-subtle)]">،</span>
+                  )}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onSelectTopic) onSelectTopic(t.id);
+                    }}
+                    className="text-[var(--accent)] hover:underline cursor-pointer font-medium"
+                  >
+                    {t.label}
+                  </button>
+                </React.Fragment>
+              ))}
+            </div>
             <span aria-hidden="true" className="text-[var(--border-subtle)]">·</span>
             <time className="font-mono text-[11px] text-[var(--text-secondary)]">
               {article.shamsiDate}
@@ -64,6 +78,16 @@ export const ArticleRow: React.FC<ArticleRowProps> = ({
           >
             <HighlightedText text={article.excerpt} query={searchQuery || ''} />
           </p>
+
+          {/* Optional body/footnote context snippet when searching */}
+          {matchSnippet && searchQuery && searchQuery.trim() && (
+            <p
+              onClick={() => onSelect(article)}
+              className="mt-2.5 text-xs text-[var(--text-muted)] leading-relaxed bg-[var(--bg-surface)]/70 border-r-2 border-[var(--accent)]/60 pr-2.5 py-1 rounded-l font-body-persian line-clamp-2"
+            >
+              <HighlightedText text={matchSnippet} query={searchQuery} />
+            </p>
+          )}
         </div>
 
         {/* Subtle arrow indicator on desktop hover */}

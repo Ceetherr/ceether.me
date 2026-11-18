@@ -2,9 +2,10 @@ import React, { useState, useMemo } from 'react';
 import { Article, TopicId, TopicInfo } from '../types';
 import { ArticleRow } from './ArticleRow';
 import { TopicChips } from './TopicChips';
-import { toPersianDigits, normalizePersian } from '../utils/persian';
+import { toPersianDigits } from '../utils/persian';
+import { searchArticles } from '../utils/search';
 import { useDebounce } from '../hooks/useDebounce';
-import { Search, ArrowUpDown, X, Loader2 } from 'lucide-react';
+import { Search, X, Loader2 } from 'lucide-react';
 
 interface ArticlesPageProps {
   articles: Article[];
@@ -30,40 +31,21 @@ export const ArticlesPage: React.FC<ArticlesPageProps> = ({
   const debouncedQuery = useDebounce(searchInput, 250);
   const isDebouncing = searchInput !== debouncedQuery;
 
-  const filteredArticles = useMemo(() => {
-    const normalizedQuery = normalizePersian(debouncedQuery).trim();
+  const filteredMatches = useMemo(() => {
+    const matches = searchArticles(articles, debouncedQuery, selectedTopic);
 
-    return articles
-      .filter((art) => {
-        // Topic filter
-        const matchesTopic = selectedTopic === 'all' || art.topicId === selectedTopic;
-        if (!matchesTopic) return false;
-
-        // If no search query, match all within the topic
-        if (!normalizedQuery) return true;
-
-        // Full-text search across article title and excerpt
-        const normTitle = normalizePersian(art.title);
-        const normExcerpt = normalizePersian(art.excerpt);
-        const normTopic = normalizePersian(art.topicLabel);
-
-        // Split query into terms to support multi-word search
-        const queryTerms = normalizedQuery.split(/\s+/).filter(Boolean);
-
-        return queryTerms.every((term) => {
-          return (
-            normTitle.includes(term) ||
-            normExcerpt.includes(term) ||
-            normTopic.includes(term)
-          );
-        });
-      })
-      .sort((a, b) => {
-        if (sortBy === 'newest') return b.number - a.number;
-        if (sortBy === 'oldest') return a.number - b.number;
-        if (sortBy === 'readingTime') return b.readingTimeMinutes - a.readingTimeMinutes;
-        return 0;
-      });
+    return [...matches].sort((a, b) => {
+      if (debouncedQuery.trim()) {
+        // When searching, prioritize relevance first, then selected sort order
+        if (b.score !== a.score) return b.score - a.score;
+      }
+      if (sortBy === 'newest') return b.article.number - a.article.number;
+      if (sortBy === 'oldest') return a.article.number - b.article.number;
+      if (sortBy === 'readingTime') {
+        return b.article.readingTimeMinutes - a.article.readingTimeMinutes;
+      }
+      return 0;
+    });
   }, [articles, selectedTopic, debouncedQuery, sortBy]);
 
   return (
@@ -90,7 +72,7 @@ export const ArticlesPage: React.FC<ArticlesPageProps> = ({
               type="text"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="جستجوی تمام‌متن در عنوان‌ها و چکیده مقاله‌ها (مثلاً: فلسفه، سکوت، الگوریتم)..."
+              placeholder="جستجوی تمام‌متن در عنوان، چکیده و متن کامل جستارها (مثلاً: فلسفه، شمن، دین)..."
               className="w-full pl-10 pr-11 py-2.5 text-sm bg-[var(--bg-surface)] border border-[var(--border-divider)] rounded-lg text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent)] transition-colors text-right"
             />
             {isDebouncing ? (
@@ -122,7 +104,7 @@ export const ArticlesPage: React.FC<ArticlesPageProps> = ({
             <div className="flex items-center gap-2">
               <span>نمایش </span>
               <strong className="font-mono text-[var(--text-primary)]">
-                {toPersianDigits(filteredArticles.length)}
+                {toPersianDigits(filteredMatches.length)}
               </strong>
               <span> جستار از مجموع </span>
               <span className="font-mono">{toPersianDigits(articles.length)}</span>
@@ -149,15 +131,16 @@ export const ArticlesPage: React.FC<ArticlesPageProps> = ({
         </div>
 
         {/* Articles List */}
-        {filteredArticles.length > 0 ? (
+        {filteredMatches.length > 0 ? (
           <div className="divide-y divide-[var(--border-divider)]">
-            {filteredArticles.map((article) => (
+            {filteredMatches.map(({ article, snippet }) => (
               <ArticleRow
                 key={article.id}
                 article={article}
                 onSelect={onSelectArticle}
                 onSelectTopic={onSelectTopic}
                 searchQuery={debouncedQuery}
+                matchSnippet={snippet}
               />
             ))}
           </div>
@@ -167,7 +150,7 @@ export const ArticlesPage: React.FC<ArticlesPageProps> = ({
               جستاری با مشخصات مورد نظر یافت نشد
             </p>
             <p className="text-xs text-[var(--text-muted)] mb-4">
-              {debouncedQuery ? `هیچ جستاری شامل عبارت «${debouncedQuery}» در عنوان یا چکیده یافت نشد.` : 'در این موضوع جستاری یافت نشد.'}
+              {debouncedQuery ? `هیچ جستاری شامل عبارت «${debouncedQuery}» در عنوان، چکیده یا متن کامل یافت نشد.` : 'در این موضوع جستاری یافت نشد.'}
             </p>
             <button
               onClick={() => {

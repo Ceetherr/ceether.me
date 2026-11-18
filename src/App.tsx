@@ -13,10 +13,10 @@ import { Article, TopicId, ThemeMode } from './types';
 import { SearchModal } from './components/SearchModal';
 import { SavedArticlesDrawer } from './components/SavedArticlesDrawer';
 import { useBookmarks } from './hooks/useBookmarks';
-import { ArrowLeft, BookOpen, Layers, Search, Bookmark } from 'lucide-react';
+import { Search, Bookmark } from 'lucide-react';
 import { toPersianDigits } from './utils/persian';
-
-type ViewMode = 'home' | 'articles' | 'topic' | 'article' | 'about';
+import { articleHasTopic, computeTopicCounts } from './utils/topics';
+import { ViewMode, RouteState, parseLocation, buildPath } from './utils/router';
 
 export default function App() {
   // Theme state: 3 curated paper & dark palettes
@@ -34,10 +34,21 @@ export default function App() {
 
   const isDark = currentTheme === 'night';
 
+  // Initial route state parsed from browser URL
+  const initialRoute = useMemo(
+    () => parseLocation(window.location.pathname, ARTICLES, TOPICS),
+    []
+  );
+
   // Current view routing
-  const [currentView, setCurrentView] = useState<ViewMode>('home');
-  const [selectedTopicId, setSelectedTopicId] = useState<TopicId>('all');
-  const [activeArticle, setActiveArticle] = useState<Article | null>(null);
+  const [currentView, setCurrentView] = useState<ViewMode>(initialRoute.view);
+  const [selectedTopicId, setSelectedTopicId] = useState<TopicId>(initialRoute.topicId || 'all');
+  const [activeArticle, setActiveArticle] = useState<Article | null>(() => {
+    if (initialRoute.view === 'article' && initialRoute.articleSlug) {
+      return ARTICLES.find((a) => a.slug === initialRoute.articleSlug) || null;
+    }
+    return null;
+  });
   const [readingProgress, setReadingProgress] = useState<number>(0);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [isSavedDrawerOpen, setIsSavedDrawerOpen] = useState(false);
@@ -92,29 +103,63 @@ export default function App() {
     setCurrentTheme(order[nextIdx]);
   };
 
-  // Article count per topic
-  const topicCounts = useMemo(() => {
-    const counts: Record<TopicId, number> = {
-      all: ARTICLES.length,
-      philosophy: 0,
-      science: 0,
-      technology: 0,
-      reflections: 0,
-    };
-    ARTICLES.forEach((art) => {
-      if (counts[art.topicId] !== undefined) {
-        counts[art.topicId]++;
+  // Sync browser back/forward navigation (popstate)
+  useEffect(() => {
+    const handlePopState = () => {
+      const route = parseLocation(window.location.pathname, ARTICLES, TOPICS);
+      setIsFocusMode(false);
+      setCurrentView(route.view);
+      if (route.view === 'article' && route.articleSlug) {
+        const found = ARTICLES.find((a) => a.slug === route.articleSlug) || null;
+        setActiveArticle(found);
+        setReadingProgress(0);
+      } else {
+        setActiveArticle(null);
       }
-    });
-    return counts;
+      if (route.topicId) {
+        setSelectedTopicId(route.topicId);
+      } else if (route.view === 'home' || route.view === 'articles') {
+        setSelectedTopicId('all');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Filtered articles for home view
+  // Sync document.title with active route
+  useEffect(() => {
+    const baseName = AUTHOR_BIO.name;
+    if (currentView === 'article' && activeArticle) {
+      document.title = `${activeArticle.title} | ${baseName}`;
+    } else if (currentView === 'articles') {
+      document.title = `جستارها | ${baseName}`;
+    } else if (currentView === 'topic') {
+      const topicInfo = TOPICS.find((t) => t.id === selectedTopicId) || TOPICS[0];
+      document.title = `${topicInfo.label} | ${baseName}`;
+    } else if (currentView === 'about') {
+      document.title = `درباره من | ${baseName}`;
+    } else {
+      document.title = 'بهترین کیان عمرت | یادداشت‌ها و جستارها';
+    }
+  }, [currentView, activeArticle, selectedTopicId]);
+
+  const pushRouteUrl = (route: RouteState) => {
+    const nextPath = buildPath(route);
+    if (window.location.pathname !== nextPath) {
+      window.history.pushState(null, '', nextPath);
+    }
+  };
+
+  // Article count per topic (supports multi-topic articles)
+  const topicCounts = useMemo(() => computeTopicCounts(ARTICLES, TOPICS), []);
+
+  // Filtered articles for home view (supports extraTopics)
   const homeFilteredArticles = useMemo(() => {
     if (selectedTopicId === 'all') {
       return ARTICLES;
     }
-    return ARTICLES.filter((art) => art.topicId === selectedTopicId);
+    return ARTICLES.filter((art) => articleHasTopic(art, selectedTopicId));
   }, [selectedTopicId]);
 
   // Navigate handler
@@ -123,24 +168,24 @@ export default function App() {
     if (view === 'home') {
       setCurrentView('home');
       setActiveArticle(null);
+      pushRouteUrl({ view: 'home' });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else if (view === 'articles') {
       setCurrentView('articles');
       setActiveArticle(null);
+      pushRouteUrl({ view: 'articles' });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else if (view === 'topics') {
-      if (param) {
-        setSelectedTopicId(param as TopicId);
-        setCurrentView('topic');
-      } else {
-        // If no param, go to topic page with current or first topic
-        setCurrentView('topic');
-      }
+      const targetTopic = (param as TopicId) || (selectedTopicId !== 'all' ? selectedTopicId : (TOPICS.find((t) => t.id !== 'all')?.id || 'philosophy'));
+      setSelectedTopicId(targetTopic);
+      setCurrentView('topic');
       setActiveArticle(null);
+      pushRouteUrl({ view: 'topic', topicId: targetTopic });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else if (view === 'about') {
       setCurrentView('about');
       setActiveArticle(null);
+      pushRouteUrl({ view: 'about' });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
@@ -150,6 +195,7 @@ export default function App() {
     setActiveArticle(article);
     setCurrentView('article');
     setReadingProgress(0);
+    pushRouteUrl({ view: 'article', articleSlug: article.slug });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -158,9 +204,11 @@ export default function App() {
   };
 
   const handleNavigateToTopicPage = (topicId: TopicId) => {
-    setSelectedTopicId(topicId);
+    const resolvedTopic = topicId === 'all' ? (TOPICS.find((t) => t.id !== 'all')?.id || 'philosophy') : topicId;
+    setSelectedTopicId(resolvedTopic);
     setCurrentView('topic');
     setActiveArticle(null);
+    pushRouteUrl({ view: 'topic', topicId: resolvedTopic });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -283,10 +331,7 @@ export default function App() {
           <ArticleView
             article={activeArticle}
             allArticles={ARTICLES}
-            onBack={() => {
-              setIsFocusMode(false);
-              setCurrentView('home');
-            }}
+            onBack={() => handleNavigate('home')}
             onSelectArticle={handleSelectArticle}
             onSelectTopic={handleNavigateToTopicPage}
             onScrollProgress={setReadingProgress}
@@ -315,7 +360,7 @@ export default function App() {
             topic={activeTopicInfo}
             allTopics={TOPICS.filter((t) => t.id !== 'all')}
             articles={ARTICLES}
-            onSelectTopic={setSelectedTopicId}
+            onSelectTopic={handleNavigateToTopicPage}
             onSelectArticle={handleSelectArticle}
             onBackToArticles={() => handleNavigate('articles')}
           />

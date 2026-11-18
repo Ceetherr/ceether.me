@@ -7,8 +7,23 @@ interface HighlightedTextProps {
   className?: string;
 }
 
+function buildFlexibleTermPattern(term: string): string {
+  const norm = normalizePersian(term);
+  if (!norm) return '';
+
+  return Array.from(norm)
+    .map((ch) => {
+      if (ch === 'ی') return '[یيى]';
+      if (ch === 'ک') return '[کك]';
+      if (ch === ' ') return '[\\s\\u200c]+';
+      return ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    })
+    .join('[\\u200B-\\u200D\\uFEFF\\u064B-\\u065F\\u0670]*');
+}
+
 /**
  * Safely renders text with matching search terms highlighted using subtle background marks.
+ * Handles Persian character variants (ی/ي, ک/ك), diacritics, and ZWNJ (نیم‌فاصله).
  */
 export const HighlightedText: React.FC<HighlightedTextProps> = ({
   text,
@@ -20,23 +35,27 @@ export const HighlightedText: React.FC<HighlightedTextProps> = ({
     return <span className={className}>{text}</span>;
   }
 
-  const rawWords = query.trim().split(/\s+/).filter((w) => w.length > 0);
+  const rawWords = normalizePersian(query)
+    .split(/\s+/)
+    .filter((w) => w.length > 0);
   if (rawWords.length === 0) {
     return <span className={className}>{text}</span>;
   }
 
-  // Escape special regex characters
-  const escapedWords = rawWords.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-  const regex = new RegExp(`(${escapedWords.join('|')})`, 'gi');
+  const patterns = rawWords.map(buildFlexibleTermPattern).filter(Boolean);
+  if (patterns.length === 0) {
+    return <span className={className}>{text}</span>;
+  }
 
+  const regex = new RegExp(`(${patterns.join('|')})`, 'gi');
   const parts = text.split(regex);
 
   return (
     <span className={className}>
       {parts.map((part, index) => {
-        const isMatched = rawWords.some(
-          (w) => normalizePersian(w) === normalizePersian(part)
-        );
+        if (!part) return null;
+        const normPart = normalizePersian(part);
+        const isMatched = rawWords.some((w) => normPart === w);
         if (isMatched) {
           return (
             <mark

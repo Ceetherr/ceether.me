@@ -26,6 +26,7 @@ export interface Article {
   excerpt: string;
   topicId: TopicId;
   topicLabel: string;
+  extraTopics?: Array<{ id: TopicId; label: string }>;
   shamsiDate: string; // e.g. "۱۶ اسفند ۱۴۰۴"
   rawDate: string; // ISO format for sorting
   readingTimeMinutes: number;
@@ -47,7 +48,7 @@ export interface AuthorBio {
   title: string;
   greeting: string;
   bioShort: string;
-  bioFull: string;
+  bioFull?: string;
   portrait: string;
   telegramUrl?: string;
   githubUrl?: string;
