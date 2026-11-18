@@ -18,6 +18,25 @@ export interface ArticleContentSection {
   language?: string;
 }
 
+export interface ArticleSeriesMeta {
+  id: string;
+  title: string;
+  part: number;
+  partLabel?: string;
+  partQuestion?: string;
+}
+
+export interface SeriesInfo {
+  id: string;
+  title: string;
+  description: string;
+  plannedParts?: Array<{
+    part: number;
+    partLabel?: string;
+    partQuestion: string;
+  }>;
+}
+
 export interface Article {
   id: string;
   number: number; // e.g. 8 for #۰۸
@@ -27,6 +46,7 @@ export interface Article {
   topicId: TopicId;
   topicLabel: string;
   extraTopics?: Array<{ id: TopicId; label: string }>;
+  series?: ArticleSeriesMeta;
   shamsiDate: string; // e.g. "۱۶ اسفند ۱۴۰۴"
   rawDate: string; // ISO format for sorting
   readingTimeMinutes: number;
