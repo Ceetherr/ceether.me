@@ -6,16 +6,23 @@ import { ArticleRow } from './components/ArticleRow';
 import { ArticleView } from './components/ArticleView';
 import { ArticlesPage } from './components/ArticlesPage';
 import { TopicPage } from './components/TopicPage';
+import { SeriesPage } from './components/SeriesPage';
 import { AboutPage } from './components/AboutPage';
 import { Footer } from './components/Footer';
-import { ARTICLES, TOPICS, AUTHOR_BIO } from './data/articles';
+import { ARTICLES, TOPICS, SERIES_LIST, AUTHOR_BIO } from './data/articles';
 import { Article, TopicId, ThemeMode } from './types';
 import { SearchModal } from './components/SearchModal';
 import { SavedArticlesDrawer } from './components/SavedArticlesDrawer';
 import { useBookmarks } from './hooks/useBookmarks';
 import { Search, Bookmark } from 'lucide-react';
 import { toPersianDigits } from './utils/persian';
-import { articleHasTopic, computeTopicCounts } from './utils/topics';
+import {
+  resolveSeriesInfo,
+  getReadArticleIds,
+  markArticleAsRead,
+  buildFeedEntries,
+  computeCollapsedTopicCounts,
+} from './utils/series';
 import { ViewMode, RouteState, parseLocation, buildPath } from './utils/router';
 
 export default function App() {
@@ -36,19 +43,23 @@ export default function App() {
 
   // Initial route state parsed from browser URL
   const initialRoute = useMemo(
-    () => parseLocation(window.location.pathname, ARTICLES, TOPICS),
+    () => parseLocation(window.location.pathname, ARTICLES, TOPICS, SERIES_LIST),
     []
   );
 
   // Current view routing
   const [currentView, setCurrentView] = useState<ViewMode>(initialRoute.view);
   const [selectedTopicId, setSelectedTopicId] = useState<TopicId>(initialRoute.topicId || 'all');
+  const [selectedSeriesId, setSelectedSeriesId] = useState<string>(
+    initialRoute.seriesId || SERIES_LIST[0]?.id || ''
+  );
   const [activeArticle, setActiveArticle] = useState<Article | null>(() => {
     if (initialRoute.view === 'article' && initialRoute.articleSlug) {
       return ARTICLES.find((a) => a.slug === initialRoute.articleSlug) || null;
     }
     return null;
   });
+  const [readArticleIds, setReadArticleIds] = useState<string[]>(() => getReadArticleIds());
   const [readingProgress, setReadingProgress] = useState<number>(0);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [isSavedDrawerOpen, setIsSavedDrawerOpen] = useState(false);
@@ -106,7 +117,7 @@ export default function App() {
   // Sync browser back/forward navigation (popstate)
   useEffect(() => {
     const handlePopState = () => {
-      const route = parseLocation(window.location.pathname, ARTICLES, TOPICS);
+      const route = parseLocation(window.location.pathname, ARTICLES, TOPICS, SERIES_LIST);
       setIsFocusMode(false);
       setCurrentView(route.view);
       if (route.view === 'article' && route.articleSlug) {
@@ -120,6 +131,9 @@ export default function App() {
         setSelectedTopicId(route.topicId);
       } else if (route.view === 'home' || route.view === 'articles') {
         setSelectedTopicId('all');
+      }
+      if (route.seriesId) {
+        setSelectedSeriesId(route.seriesId);
       }
     };
 
@@ -137,12 +151,15 @@ export default function App() {
     } else if (currentView === 'topic') {
       const topicInfo = TOPICS.find((t) => t.id === selectedTopicId) || TOPICS[0];
       document.title = `${topicInfo.label} | ${baseName}`;
+    } else if (currentView === 'series') {
+      const seriesInfo = resolveSeriesInfo(selectedSeriesId, ARTICLES, SERIES_LIST);
+      document.title = seriesInfo ? `${seriesInfo.title} | ${baseName}` : `سلسله جستارها | ${baseName}`;
     } else if (currentView === 'about') {
       document.title = `درباره من | ${baseName}`;
     } else {
       document.title = 'بهترین کیان عمرت | یادداشت‌ها و جستارها';
     }
-  }, [currentView, activeArticle, selectedTopicId]);
+  }, [currentView, activeArticle, selectedTopicId, selectedSeriesId]);
 
   const pushRouteUrl = (route: RouteState) => {
     const nextPath = buildPath(route);
@@ -151,16 +168,26 @@ export default function App() {
     }
   };
 
-  // Article count per topic (supports multi-topic articles)
-  const topicCounts = useMemo(() => computeTopicCounts(ARTICLES, TOPICS), []);
+  // Collapsed feed entries (series grouped into one entry) and matching topic counts
+  const allFeedEntries = useMemo(
+    () => buildFeedEntries(ARTICLES, SERIES_LIST),
+    []
+  );
 
-  // Filtered articles for home view (supports extraTopics)
-  const homeFilteredArticles = useMemo(() => {
+  const topicCounts = useMemo(
+    () => computeCollapsedTopicCounts(ARTICLES, TOPICS, SERIES_LIST),
+    []
+  );
+
+  // Filtered entries for home view (supports extraTopics & grouped series)
+  const homeFilteredEntries = useMemo(() => {
     if (selectedTopicId === 'all') {
-      return ARTICLES;
+      return allFeedEntries;
     }
-    return ARTICLES.filter((art) => articleHasTopic(art, selectedTopicId));
-  }, [selectedTopicId]);
+    return allFeedEntries.filter((entry) =>
+      entry.topics.some((t) => t.id === selectedTopicId)
+    );
+  }, [allFeedEntries, selectedTopicId]);
 
   // Navigate handler
   const handleNavigate = (view: string, param?: string) => {
@@ -212,7 +239,21 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleNavigateToSeriesPage = (seriesId: string) => {
+    setIsFocusMode(false);
+    setSelectedSeriesId(seriesId);
+    setCurrentView('series');
+    setActiveArticle(null);
+    pushRouteUrl({ view: 'series', seriesId });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleMarkArticleAsRead = (articleId: string) => {
+    setReadArticleIds(markArticleAsRead(articleId));
+  };
+
   const activeTopicInfo = TOPICS.find((t) => t.id === selectedTopicId) || TOPICS[0];
+  const activeSeriesInfo = resolveSeriesInfo(selectedSeriesId, ARTICLES, SERIES_LIST);
 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg-page)] text-[var(--text-primary)] transition-colors duration-200">
@@ -296,14 +337,16 @@ export default function App() {
                   topicCounts={topicCounts}
                 />
 
-                {/* Numbered Articles List (Reverse Order) */}
+                {/* Numbered Unified Entries List (Reverse Order) */}
                 <div className="divide-y divide-[var(--border-divider)] pt-2">
-                  {homeFilteredArticles.slice(0, 5).map((article) => (
+                  {homeFilteredEntries.slice(0, 5).map((entry) => (
                     <ArticleRow
-                      key={article.id}
-                      article={article}
+                      key={entry.id}
+                      article={entry.article}
+                      feedEntry={entry}
                       onSelect={handleSelectArticle}
                       onSelectTopic={handleNavigateToTopicPage}
+                      onSelectSeries={handleNavigateToSeriesPage}
                     />
                   ))}
                 </div>
@@ -317,7 +360,7 @@ export default function App() {
                     <span>مشاهده همه‌ی جستارها</span>
                     <span className="group-hover:-translate-x-1 transition-transform">←</span>
                     <span className="font-mono text-xs text-[var(--text-muted)] mr-1">
-                      ({toPersianDigits(ARTICLES.length)} نوشته)
+                      ({toPersianDigits(allFeedEntries.length)} عنوان)
                     </span>
                   </button>
                 </div>
@@ -334,6 +377,9 @@ export default function App() {
             onBack={() => handleNavigate('home')}
             onSelectArticle={handleSelectArticle}
             onSelectTopic={handleNavigateToTopicPage}
+            onSelectSeries={handleNavigateToSeriesPage}
+            readArticleIds={readArticleIds}
+            onMarkAsRead={handleMarkArticleAsRead}
             onScrollProgress={setReadingProgress}
             isBookmarked={isBookmarked(activeArticle.id)}
             onToggleBookmark={toggleBookmark}
@@ -346,10 +392,12 @@ export default function App() {
         {currentView === 'articles' && (
           <ArticlesPage
             articles={ARTICLES}
+            seriesList={SERIES_LIST}
             topics={TOPICS}
             selectedTopic={selectedTopicId}
             onSelectTopic={setSelectedTopicId}
             onSelectArticle={handleSelectArticle}
+            onSelectSeries={handleNavigateToSeriesPage}
             topicCounts={topicCounts}
           />
         )}
@@ -360,13 +408,28 @@ export default function App() {
             topic={activeTopicInfo}
             allTopics={TOPICS.filter((t) => t.id !== 'all')}
             articles={ARTICLES}
+            seriesList={SERIES_LIST}
             onSelectTopic={handleNavigateToTopicPage}
+            onSelectArticle={handleSelectArticle}
+            onSelectSeries={handleNavigateToSeriesPage}
+            onBackToArticles={() => handleNavigate('articles')}
+          />
+        )}
+
+        {/* VIEW 5: SERIES DEDICATED PAGE */}
+        {currentView === 'series' && activeSeriesInfo && (
+          <SeriesPage
+            series={activeSeriesInfo}
+            allSeries={SERIES_LIST}
+            articles={ARTICLES}
+            readArticleIds={readArticleIds}
+            onSelectSeries={handleNavigateToSeriesPage}
             onSelectArticle={handleSelectArticle}
             onBackToArticles={() => handleNavigate('articles')}
           />
         )}
 
-        {/* VIEW 5: ABOUT PAGE */}
+        {/* VIEW 6: ABOUT PAGE */}
         {currentView === 'about' && <AboutPage />}
       </main>
 

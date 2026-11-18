@@ -1,6 +1,7 @@
 import { Article, TopicId } from '../types';
 import { normalizePersian } from './persian';
 import { articleHasTopic, getArticleTopics } from './topics';
+import { getPartLabel } from './series';
 
 export interface ArticleSearchMatch {
   article: Article;
@@ -128,6 +129,17 @@ export function searchArticles(
         .map((t) => t.label)
         .join(' ')
     );
+    const normSeries = article.series
+      ? normalizePersian(
+          [
+            article.series.title,
+            getPartLabel(article.series.part, article.series.partLabel),
+            article.series.partQuestion,
+          ]
+            .filter(Boolean)
+            .join(' ')
+        )
+      : '';
 
     const sectionEntries = article.sections.map((sec) => {
       const combined = [sec.text, sec.cite, sec.caption]
@@ -152,6 +164,7 @@ export function searchArticles(
     const fullNormalizedText = [
       normTitle,
       normTopics,
+      normSeries,
       normExcerpt,
       article.featuredImageCaption ? normalizePersian(article.featuredImageCaption) : '',
       ...sectionEntries.map((s) => s.norm),

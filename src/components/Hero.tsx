@@ -30,7 +30,7 @@ export const Hero: React.FC<HeroProps> = ({ onExploreArticles, onReadAbout }) =>
                 onClick={onExploreArticles}
                 className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-medium text-white bg-[var(--accent)] hover:bg-[var(--accent-hover)] rounded-md transition-colors shadow-xs"
               >
-                <span>خواندن جستارها</span>
+                <span>خوندن جستارها</span>
                 <ArrowLeft className="w-4 h-4" />
               </button>
 

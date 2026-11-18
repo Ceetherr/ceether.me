@@ -1,16 +1,18 @@
-import React from 'react';
-import { Article, TopicId, TopicInfo } from '../types';
+import React, { useMemo } from 'react';
+import { Article, SeriesInfo, TopicId, TopicInfo } from '../types';
 import { ArticleRow } from './ArticleRow';
 import { toPersianDigits } from '../utils/persian';
-import { articleHasTopic } from '../utils/topics';
-import { ArrowRight, Compass, Sparkles, BookOpen, Layers } from 'lucide-react';
+import { buildFeedEntries } from '../utils/series';
+import { ArrowRight } from 'lucide-react';
 
 interface TopicPageProps {
   topic: TopicInfo;
   allTopics: TopicInfo[];
   articles: Article[];
+  seriesList: SeriesInfo[];
   onSelectTopic: (topicId: TopicId) => void;
   onSelectArticle: (article: Article) => void;
+  onSelectSeries?: (seriesId: string) => void;
   onBackToArticles: () => void;
 }
 
@@ -18,11 +20,17 @@ export const TopicPage: React.FC<TopicPageProps> = ({
   topic,
   allTopics,
   articles,
+  seriesList,
   onSelectTopic,
   onSelectArticle,
+  onSelectSeries,
   onBackToArticles,
 }) => {
-  const topicArticles = articles.filter((a) => articleHasTopic(a, topic.id));
+  const topicEntries = useMemo(() => {
+    const entries = buildFeedEntries(articles, seriesList);
+    if (topic.id === 'all') return entries;
+    return entries.filter((entry) => entry.topics.some((t) => t.id === topic.id));
+  }, [articles, seriesList, topic.id]);
 
   return (
     <div className="py-10 sm:py-14">
@@ -45,7 +53,7 @@ export const TopicPage: React.FC<TopicPageProps> = ({
               موضوع تخصصی
             </span>
             <span className="font-mono text-xs text-[var(--text-muted)]">
-              {toPersianDigits(topicArticles.length)} جستار
+              {toPersianDigits(topicEntries.length)} عنوان
             </span>
           </div>
 
@@ -74,14 +82,16 @@ export const TopicPage: React.FC<TopicPageProps> = ({
           </div>
         </div>
 
-        {/* Numbered Articles List */}
+        {/* Numbered Entries List */}
         <div className="space-y-1">
-          {topicArticles.map((article) => (
+          {topicEntries.map((entry) => (
             <ArticleRow
-              key={article.id}
-              article={article}
+              key={entry.id}
+              article={entry.article}
+              feedEntry={entry}
               onSelect={onSelectArticle}
               onSelectTopic={onSelectTopic}
+              onSelectSeries={onSelectSeries}
             />
           ))}
         </div>

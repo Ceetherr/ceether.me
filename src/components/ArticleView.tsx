@@ -3,6 +3,7 @@ import { Article, Footnote } from '../types';
 import { AUTHOR_BIO } from '../data/articles';
 import { formatArticleNumber, formatReadingTime, toPersianDigits, copyToClipboard } from '../utils/persian';
 import { getArticleTopics, articlesShareTopic } from '../utils/topics';
+import { getPartLabel, getAdjacentSeriesParts } from '../utils/series';
 import {
   ArrowRight,
   ArrowLeft,
@@ -15,8 +16,8 @@ import {
   Copy,
   Send,
   X,
-  ExternalLink,
   BookOpen,
+  Layers,
 } from 'lucide-react';
 
 type FontSize = 'sm' | 'md' | 'lg' | 'xl';
@@ -29,6 +30,9 @@ interface ArticleViewProps {
   onBack: () => void;
   onSelectArticle: (article: Article) => void;
   onSelectTopic: (topicId: Article['topicId']) => void;
+  onSelectSeries?: (seriesId: string) => void;
+  readArticleIds?: string[];
+  onMarkAsRead?: (articleId: string) => void;
   onScrollProgress?: (progress: number) => void;
   isBookmarked?: boolean;
   onToggleBookmark?: (articleId: string) => void;
@@ -42,6 +46,9 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
   onBack,
   onSelectArticle,
   onSelectTopic,
+  onSelectSeries,
+  readArticleIds = [],
+  onMarkAsRead,
   onScrollProgress,
   isBookmarked = false,
   onToggleBookmark,
@@ -82,13 +89,48 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
 
   const articleBodyRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
+  const switchTimeoutRef = useRef<number | null>(null);
 
-  // Scroll to top upon opening article
+  // Smooth fade-in/out state when switching parts or opening an article
+  const [transitionPhase, setTransitionPhase] = useState<'visible' | 'fading-out' | 'fading-in'>('fading-in');
+
+  // Cleanup any pending switch timeout on unmount
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return () => {
+      if (switchTimeoutRef.current) {
+        window.clearTimeout(switchTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Reset UI popovers and gently fade in newly opened article/part
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'auto' });
     setActiveFootnote(null);
     setQuoteSelection(null);
+    setTransitionPhase('fading-in');
+
+    const rafId = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setTransitionPhase('visible');
+      });
+    });
+
+    return () => cancelAnimationFrame(rafId);
   }, [article.id]);
+
+  // Animated switch: gently fade out current part before switching to target part
+  const handleAnimatedSelectArticle = (target: Article) => {
+    if (target.id === article.id) return;
+    if (switchTimeoutRef.current) {
+      window.clearTimeout(switchTimeoutRef.current);
+    }
+    setTransitionPhase('fading-out');
+    switchTimeoutRef.current = window.setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: 'auto' });
+      onSelectArticle(target);
+    }, 190);
+  };
 
   // Persist reading preferences
   useEffect(() => {
@@ -103,21 +145,26 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
     localStorage.setItem('reader_line_height', lineHeight);
   }, [lineHeight]);
 
-  // Track reading progress
+  // Track reading progress & mark article read past 85%
   useEffect(() => {
+    let marked = false;
     const handleScroll = () => {
       const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
       if (totalHeight > 0) {
-        const currentProgress = (window.scrollY / totalHeight) * 100;
+        const currentProgress = Math.min(100, Math.max(0, (window.scrollY / totalHeight) * 100));
         if (onScrollProgress) {
-          onScrollProgress(Math.min(100, Math.max(0, currentProgress)));
+          onScrollProgress(currentProgress);
+        }
+        if (!marked && currentProgress >= 85 && onMarkAsRead) {
+          marked = true;
+          onMarkAsRead(article.id);
         }
       }
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [onScrollProgress]);
+  }, [onScrollProgress, onMarkAsRead, article.id]);
 
   // Keyboard shortcut listener (Esc to close popovers or exit focus mode)
   useEffect(() => {
@@ -197,14 +244,23 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
     return () => document.removeEventListener('mouseup', handleMouseUp);
   }, []);
 
-  // Find previous and next articles
+  // Find previous and next articles (chronological fallback)
   const currentIndex = allArticles.findIndex((a) => a.id === article.id);
   const prevArticle = currentIndex > 0 ? allArticles[currentIndex - 1] : null; // Newer article
   const nextArticle = currentIndex < allArticles.length - 1 ? allArticles[currentIndex + 1] : null; // Older article
 
-  // Related articles (same/shared topic or adjacent)
+  // Series parts & series-aware adjacent navigation
+  const { allParts: seriesParts, prevPart: seriesPrevPart, nextPart: seriesNextPart } =
+    getAdjacentSeriesParts(allArticles, article);
+
+  // Related articles (excluding other parts of the same series, since series strip & prev/next already link them)
   const relatedArticles = allArticles
-    .filter((a) => a.id !== article.id && (articlesShareTopic(a, article) || Math.abs(a.number - article.number) <= 2))
+    .filter(
+      (a) =>
+        a.id !== article.id &&
+        (!article.series || a.series?.id !== article.series.id) &&
+        (articlesShareTopic(a, article) || Math.abs(a.number - article.number) <= 2)
+    )
     .slice(0, 3);
 
   const handleShare = async () => {
@@ -678,7 +734,7 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
                       setTimeout(() => setBookmarkToast(null), 2000);
                     }
                   }}
-                  title={isBookmarked ? 'نشان شده (حذف از نشان‌ها)' : 'نشان کردن برای خواندن بعدی'}
+                  title={isBookmarked ? 'نشان شده (حذف از نشان‌ها)' : 'نشان کردن برای خوندن بعدی'}
                   className={`p-1.5 rounded-md border border-[var(--border-subtle)] transition-colors cursor-pointer ${
                     isBookmarked
                       ? 'bg-[var(--accent-surface)] text-[var(--accent)] border-[var(--accent)]'
@@ -716,6 +772,16 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
           </div>
         )}
 
+        {/* Animated Reading Content Wrapper (Smooth Fade-in / Fade-out between parts) */}
+        <div
+          className={`transition-all ease-out ${
+            transitionPhase === 'visible'
+              ? 'opacity-100 translate-y-0 duration-300'
+              : transitionPhase === 'fading-out'
+              ? 'opacity-0 translate-y-2 duration-200 pointer-events-none'
+              : 'opacity-0 translate-y-2 duration-0'
+          }`}
+        >
         {/* Article Header */}
         <header className="mb-10 text-right">
           {/* Unboxed Metadata Line */}
@@ -739,6 +805,17 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
                 </React.Fragment>
               ))}
             </div>
+            {article.series && (
+              <>
+                <span aria-hidden="true" className="text-[var(--border-subtle)]">·</span>
+                <button
+                  onClick={() => onSelectSeries && article.series && onSelectSeries(article.series.id)}
+                  className="px-2 py-0.5 rounded bg-[var(--accent-surface)] text-[var(--accent)] hover:underline cursor-pointer text-[11px] font-medium border border-[var(--accent-subtle)]"
+                >
+                  {article.series.title} ({getPartLabel(article.series.part, article.series.partLabel)})
+                </button>
+              </>
+            )}
             <span aria-hidden="true" className="text-[var(--border-subtle)]">·</span>
             <time className="font-mono text-[11px] text-[var(--text-secondary)]">
               {article.shamsiDate}
@@ -759,9 +836,75 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
           </h1>
 
           {/* Lead Excerpt */}
-          <p className="text-base sm:text-lg text-[var(--text-secondary)] leading-relaxed font-body-persian border-b border-[var(--border-divider)] pb-6 mb-8 italic">
+          <p className="text-base sm:text-lg text-[var(--text-secondary)] leading-relaxed font-body-persian border-b border-[var(--border-divider)] pb-6 mb-6 italic">
             {article.excerpt}
           </p>
+
+          {/* Compact Series Navigation Strip (Ordinal part + part question, no bare 1 2 3 digits) */}
+          {article.series && !isFocusMode && (
+            <div className="mb-8 rounded-xl border border-[var(--border-divider)] bg-[var(--bg-surface)]/50 p-4 text-right">
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 mb-2.5 border-b border-[var(--border-divider)]">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--text-primary)]">
+                  <Layers className="w-3.5 h-3.5 text-[var(--accent)]" />
+                  <span>سلسله جستار «{article.series.title}»</span>
+                </div>
+                {onSelectSeries && (
+                  <button
+                    onClick={() => article.series && onSelectSeries(article.series.id)}
+                    className="text-[11px] font-medium text-[var(--accent)] hover:underline cursor-pointer inline-flex items-center gap-1"
+                  >
+                    <span>صفحه مجموعه</span>
+                    <span>←</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                {seriesParts.map((partArt) => {
+                  const isCurrent = partArt.id === article.id;
+                  const isRead = readArticleIds.includes(partArt.id);
+                  const partLabel = getPartLabel(
+                    partArt.series?.part || 1,
+                    partArt.series?.partLabel
+                  );
+                  const partPrompt = partArt.series?.partQuestion || partArt.title;
+
+                  return (
+                    <button
+                      key={partArt.id}
+                      onClick={() => !isCurrent && handleAnimatedSelectArticle(partArt)}
+                      disabled={isCurrent}
+                      className={`w-full text-right px-3 py-2 rounded-lg text-xs transition-colors flex items-start justify-between gap-2 ${
+                        isCurrent
+                          ? 'bg-[var(--accent-surface)] text-[var(--text-primary)] border border-[var(--accent-subtle)] cursor-default'
+                          : 'hover:bg-[var(--bg-page)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer'
+                      }`}
+                    >
+                      <span className="leading-relaxed">
+                        <strong className="text-[var(--accent)] font-semibold ml-1.5">
+                          {partLabel}:
+                        </strong>
+                        <span className={isCurrent ? 'font-medium text-[var(--text-primary)]' : ''}>
+                          {partPrompt}
+                        </span>
+                      </span>
+
+                      <span className="shrink-0 text-[10px] mt-0.5">
+                        {isCurrent ? (
+                          <span className="text-[var(--accent)] font-medium">در حال مطالعه</span>
+                        ) : isRead ? (
+                          <span className="inline-flex items-center gap-0.5 text-emerald-700 dark:text-emerald-400">
+                            <Check className="w-3 h-3" />
+                            <span>خوانده‌شده</span>
+                          </span>
+                        ) : null}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </header>
 
         {/* Featured Image if present */}
@@ -887,6 +1030,34 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
               );
             }
 
+            if (sec.type === 'divider') {
+              return (
+                <div key={idx} className="my-10 flex items-center justify-center gap-3" aria-hidden="true">
+                  <span className="h-px flex-1 bg-[var(--border-divider)]" />
+                  <span className="text-xs text-[var(--text-muted)] tracking-[0.35em]">•••</span>
+                  <span className="h-px flex-1 bg-[var(--border-divider)]" />
+                </div>
+              );
+            }
+
+            if (sec.type === 'callout') {
+              return (
+                <div
+                  key={idx}
+                  className="my-8 p-5 sm:p-6 rounded-xl border border-[var(--accent-subtle)] bg-[var(--accent-surface)]/50 text-right"
+                >
+                  {sec.cite && (
+                    <div className="text-xs font-bold text-[var(--accent)] mb-2">
+                      {sec.cite}
+                    </div>
+                  )}
+                  <p className="whitespace-pre-line m-0">
+                    {renderTextWithFootnotes(sec.text || '')}
+                  </p>
+                </div>
+              );
+            }
+
             // Default: Paragraph with footnote parser and preserved line breaks
             return (
               <p key={idx} className="whitespace-pre-line">
@@ -946,17 +1117,30 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
           ✦ ✦ ✦
         </div>
 
-        {/* Previous and Next Article Navigation (Hidden in Zen mode for total immersion) */}
+        {/* Previous and Next Article Navigation (Series-aware when part of a series, Hidden in Zen mode) */}
         {!isFocusMode && (
           <nav
             aria-label="پیمایش میان جستارها"
             className="border-t border-b border-[var(--border-divider)] py-6 my-10 grid grid-cols-1 sm:grid-cols-2 gap-4"
           >
-            {/* Previous / Newer Article */}
+            {/* Right slot: Next part in series OR Newer article */}
             <div className="text-right">
-              {prevArticle ? (
+              {seriesNextPart ? (
                 <button
-                  onClick={() => onSelectArticle(prevArticle)}
+                  onClick={() => handleAnimatedSelectArticle(seriesNextPart)}
+                  className="group w-full text-right p-3 rounded-lg bg-[var(--accent-surface)]/50 hover:bg-[var(--accent-surface)] border border-[var(--accent-subtle)] transition-colors cursor-pointer"
+                >
+                  <span className="text-[11px] text-[var(--accent)] font-semibold flex items-center gap-1">
+                    <ArrowRight className="w-3 h-3" />
+                    ادامه‌ی مجموعه · {getPartLabel(seriesNextPart.series?.part || 2, seriesNextPart.series?.partLabel)}
+                  </span>
+                  <span className="block font-serif-persian font-bold text-sm text-[var(--text-primary)] group-hover:text-[var(--accent)] line-clamp-1 mt-1">
+                    {seriesNextPart.series?.partQuestion || seriesNextPart.title}
+                  </span>
+                </button>
+              ) : prevArticle ? (
+                <button
+                  onClick={() => handleAnimatedSelectArticle(prevArticle)}
                   className="group w-full text-right p-3 rounded-lg hover:bg-[var(--bg-surface)] transition-colors cursor-pointer"
                 >
                   <span className="text-[11px] text-[var(--text-muted)] flex items-center gap-1">
@@ -974,11 +1158,24 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
               )}
             </div>
 
-            {/* Next / Older Article */}
+            {/* Left slot: Previous part in series OR Older article */}
             <div className="text-left sm:border-r border-[var(--border-divider)] sm:pr-4">
-              {nextArticle ? (
+              {seriesPrevPart ? (
                 <button
-                  onClick={() => onSelectArticle(nextArticle)}
+                  onClick={() => handleAnimatedSelectArticle(seriesPrevPart)}
+                  className="group w-full text-left sm:text-left p-3 rounded-lg hover:bg-[var(--bg-surface)] transition-colors cursor-pointer"
+                >
+                  <span className="text-[11px] text-[var(--accent)] font-semibold flex items-center justify-end sm:justify-start gap-1">
+                    {getPartLabel(seriesPrevPart.series?.part || 1, seriesPrevPart.series?.partLabel)} همین مجموعه
+                    <ArrowLeft className="w-3 h-3" />
+                  </span>
+                  <span className="block font-serif-persian font-bold text-sm text-[var(--text-primary)] group-hover:text-[var(--accent)] line-clamp-1 mt-1 text-right sm:text-left">
+                    {seriesPrevPart.series?.partQuestion || seriesPrevPart.title}
+                  </span>
+                </button>
+              ) : nextArticle ? (
+                <button
+                  onClick={() => handleAnimatedSelectArticle(nextArticle)}
                   className="group w-full text-left sm:text-left p-3 rounded-lg hover:bg-[var(--bg-surface)] transition-colors cursor-pointer"
                 >
                   <span className="text-[11px] text-[var(--text-muted)] flex items-center justify-end sm:justify-start gap-1">
@@ -1008,7 +1205,7 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
               {relatedArticles.map((rel) => (
                 <div
                   key={rel.id}
-                  onClick={() => onSelectArticle(rel)}
+                  onClick={() => handleAnimatedSelectArticle(rel)}
                   className="group flex items-start gap-3 p-3 rounded-lg hover:bg-[var(--bg-surface)]/60 border border-transparent hover:border-[var(--border-divider)] transition-colors cursor-pointer"
                 >
                   <span className="font-mono text-xs text-[var(--text-muted)] group-hover:text-[var(--accent)] font-semibold mt-0.5">
@@ -1027,6 +1224,7 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
             </div>
           </section>
         )}
+        </div>
       </div>
     </div>
   );

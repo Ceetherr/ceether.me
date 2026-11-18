@@ -1,27 +1,32 @@
 import React, { useState, useMemo } from 'react';
-import { Article, TopicId, TopicInfo } from '../types';
+import { Article, SeriesInfo, TopicId, TopicInfo } from '../types';
 import { ArticleRow } from './ArticleRow';
 import { TopicChips } from './TopicChips';
 import { toPersianDigits } from '../utils/persian';
 import { searchArticles } from '../utils/search';
+import { buildFeedEntries } from '../utils/series';
 import { useDebounce } from '../hooks/useDebounce';
 import { Search, X, Loader2 } from 'lucide-react';
 
 interface ArticlesPageProps {
   articles: Article[];
+  seriesList: SeriesInfo[];
   topics: TopicInfo[];
   selectedTopic: TopicId;
   onSelectTopic: (topicId: TopicId) => void;
   onSelectArticle: (article: Article) => void;
+  onSelectSeries?: (seriesId: string) => void;
   topicCounts: Record<TopicId, number>;
 }
 
 export const ArticlesPage: React.FC<ArticlesPageProps> = ({
   articles,
+  seriesList,
   topics,
   selectedTopic,
   onSelectTopic,
   onSelectArticle,
+  onSelectSeries,
   topicCounts,
 }) => {
   const [searchInput, setSearchInput] = useState('');
@@ -30,15 +35,31 @@ export const ArticlesPage: React.FC<ArticlesPageProps> = ({
   // Debounced search query (250ms) to prevent unnecessary re-computations on each keystroke
   const debouncedQuery = useDebounce(searchInput, 250);
   const isDebouncing = searchInput !== debouncedQuery;
+  const isSearching = debouncedQuery.trim().length > 0;
+
+  const collapsedFeedEntries = useMemo(() => {
+    const allEntries = buildFeedEntries(articles, seriesList);
+    const filtered =
+      selectedTopic === 'all'
+        ? allEntries
+        : allEntries.filter((entry) => entry.topics.some((t) => t.id === selectedTopic));
+
+    return [...filtered].sort((a, b) => {
+      if (sortBy === 'newest') return b.sortOrder - a.sortOrder;
+      if (sortBy === 'oldest') return a.sortOrder - b.sortOrder;
+      if (sortBy === 'readingTime') {
+        return b.totalReadingTimeMinutes - a.totalReadingTimeMinutes;
+      }
+      return 0;
+    });
+  }, [articles, seriesList, selectedTopic, sortBy]);
 
   const filteredMatches = useMemo(() => {
+    if (!isSearching) return [];
     const matches = searchArticles(articles, debouncedQuery, selectedTopic);
 
     return [...matches].sort((a, b) => {
-      if (debouncedQuery.trim()) {
-        // When searching, prioritize relevance first, then selected sort order
-        if (b.score !== a.score) return b.score - a.score;
-      }
+      if (b.score !== a.score) return b.score - a.score;
       if (sortBy === 'newest') return b.article.number - a.article.number;
       if (sortBy === 'oldest') return a.article.number - b.article.number;
       if (sortBy === 'readingTime') {
@@ -46,7 +67,14 @@ export const ArticlesPage: React.FC<ArticlesPageProps> = ({
       }
       return 0;
     });
-  }, [articles, selectedTopic, debouncedQuery, sortBy]);
+  }, [articles, isSearching, selectedTopic, debouncedQuery, sortBy]);
+
+  const totalFeedCount = useMemo(
+    () => buildFeedEntries(articles, seriesList).length,
+    [articles, seriesList]
+  );
+
+  const visibleCount = isSearching ? filteredMatches.length : collapsedFeedEntries.length;
 
   return (
     <div className="py-10 sm:py-14">
@@ -104,14 +132,22 @@ export const ArticlesPage: React.FC<ArticlesPageProps> = ({
             <div className="flex items-center gap-2">
               <span>نمایش </span>
               <strong className="font-mono text-[var(--text-primary)]">
-                {toPersianDigits(filteredMatches.length)}
+                {toPersianDigits(visibleCount)}
               </strong>
-              <span> جستار از مجموع </span>
-              <span className="font-mono">{toPersianDigits(articles.length)}</span>
-              {debouncedQuery.trim() && (
-                <span className="text-[var(--accent)] text-[11px] mr-1">
-                  (برای عبارت «{debouncedQuery}»)
-                </span>
+              {isSearching ? (
+                <>
+                  <span> نتیجه از مجموع </span>
+                  <span className="font-mono">{toPersianDigits(articles.length)}</span>
+                  <span> بخش</span>
+                  <span className="text-[var(--accent)] text-[11px] mr-1">
+                    (برای عبارت «{debouncedQuery}»)
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span> عنوان از مجموع </span>
+                  <span className="font-mono">{toPersianDigits(totalFeedCount)}</span>
+                </>
               )}
             </div>
 
@@ -119,7 +155,7 @@ export const ArticlesPage: React.FC<ArticlesPageProps> = ({
               <span className="text-[11px]">مرتب‌سازی:</span>
               <select
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
+                onChange={(e) => setSortBy(e.target.value as 'newest' | 'oldest' | 'readingTime')}
                 className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--text-secondary)] rounded px-2 py-1 text-xs cursor-pointer focus:outline-none focus:border-[var(--accent)]"
               >
                 <option value="newest">جدیدترین (شماره معکوس)</option>
@@ -130,36 +166,64 @@ export const ArticlesPage: React.FC<ArticlesPageProps> = ({
           </div>
         </div>
 
-        {/* Articles List */}
-        {filteredMatches.length > 0 ? (
+        {/* Articles / Unified Series List */}
+        {isSearching ? (
+          filteredMatches.length > 0 ? (
+            <div className="divide-y divide-[var(--border-divider)]">
+              {filteredMatches.map(({ article, snippet }) => (
+                <ArticleRow
+                  key={article.id}
+                  article={article}
+                  onSelect={onSelectArticle}
+                  onSelectTopic={onSelectTopic}
+                  onSelectSeries={onSelectSeries}
+                  searchQuery={debouncedQuery}
+                  matchSnippet={snippet}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-16 px-4 bg-[var(--bg-surface)]/40 rounded-xl border border-[var(--border-divider)] my-8">
+              <p className="font-serif-persian text-lg text-[var(--text-primary)] mb-2">
+                جستاری با مشخصات مورد نظر یافت نشد
+              </p>
+              <p className="text-xs text-[var(--text-muted)] mb-4">
+                هیچ جستاری شامل عبارت «{debouncedQuery}» در عنوان، چکیده یا متن کامل یافت نشد.
+              </p>
+              <button
+                onClick={() => {
+                  setSearchInput('');
+                  onSelectTopic('all');
+                }}
+                className="px-4 py-2 text-xs font-medium text-white bg-[var(--accent)] hover:bg-[var(--accent-hover)] rounded-md transition-colors cursor-pointer"
+              >
+                پاک کردن فیلترها و مشاهده همه
+              </button>
+            </div>
+          )
+        ) : collapsedFeedEntries.length > 0 ? (
           <div className="divide-y divide-[var(--border-divider)]">
-            {filteredMatches.map(({ article, snippet }) => (
+            {collapsedFeedEntries.map((entry) => (
               <ArticleRow
-                key={article.id}
-                article={article}
+                key={entry.id}
+                article={entry.article}
+                feedEntry={entry}
                 onSelect={onSelectArticle}
                 onSelectTopic={onSelectTopic}
-                searchQuery={debouncedQuery}
-                matchSnippet={snippet}
+                onSelectSeries={onSelectSeries}
               />
             ))}
           </div>
         ) : (
           <div className="text-center py-16 px-4 bg-[var(--bg-surface)]/40 rounded-xl border border-[var(--border-divider)] my-8">
             <p className="font-serif-persian text-lg text-[var(--text-primary)] mb-2">
-              جستاری با مشخصات مورد نظر یافت نشد
-            </p>
-            <p className="text-xs text-[var(--text-muted)] mb-4">
-              {debouncedQuery ? `هیچ جستاری شامل عبارت «${debouncedQuery}» در عنوان، چکیده یا متن کامل یافت نشد.` : 'در این موضوع جستاری یافت نشد.'}
+              جستاری در این موضوع یافت نشد
             </p>
             <button
-              onClick={() => {
-                setSearchInput('');
-                onSelectTopic('all');
-              }}
+              onClick={() => onSelectTopic('all')}
               className="px-4 py-2 text-xs font-medium text-white bg-[var(--accent)] hover:bg-[var(--accent-hover)] rounded-md transition-colors cursor-pointer"
             >
-              پاک کردن فیلترها و مشاهده همه
+              مشاهده همه‌ی موضوعات
             </button>
           </div>
         )}

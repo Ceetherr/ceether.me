@@ -1,10 +1,11 @@
-import { Article, TopicId, TopicInfo } from '../types';
+import { Article, SeriesInfo, TopicId, TopicInfo } from '../types';
 
-export type ViewMode = 'home' | 'articles' | 'topic' | 'article' | 'about';
+export type ViewMode = 'home' | 'articles' | 'topic' | 'series' | 'article' | 'about';
 
 export interface RouteState {
   view: ViewMode;
   topicId?: TopicId;
+  seriesId?: string;
   articleSlug?: string;
 }
 
@@ -14,10 +15,11 @@ export interface RouteState {
 export function parseLocation(
   pathname: string,
   articles: Article[],
-  topics: TopicInfo[]
+  topics: TopicInfo[],
+  seriesList: SeriesInfo[] = []
 ): RouteState {
-  const cleanPath = decodeURIComponent(pathname || '/')
-    .replace(/\/+$/, '') || '/';
+  const cleanPath =
+    decodeURIComponent(pathname || '/').replace(/\/+$/, '') || '/';
 
   if (cleanPath === '/' || cleanPath === '') {
     return { view: 'home' };
@@ -36,6 +38,16 @@ export function parseLocation(
     const matchedArticle = articles.find((a) => a.slug === slug || a.id === slug);
     if (matchedArticle) {
       return { view: 'article', articleSlug: matchedArticle.slug };
+    }
+    return { view: 'articles' };
+  }
+
+  if (cleanPath.startsWith('/series/')) {
+    const rawSeriesId = cleanPath.slice('/series/'.length);
+    const matchesCatalog = seriesList.some((s) => s.id === rawSeriesId);
+    const matchesArticle = articles.some((a) => a.series?.id === rawSeriesId);
+    if (matchesCatalog || matchesArticle) {
+      return { view: 'series', seriesId: rawSeriesId };
     }
     return { view: 'articles' };
   }
@@ -70,7 +82,13 @@ export function buildPath(state: RouteState): string {
     case 'articles':
       return '/articles';
     case 'article':
-      return state.articleSlug ? `/articles/${encodeURIComponent(state.articleSlug)}` : '/articles';
+      return state.articleSlug
+        ? `/articles/${encodeURIComponent(state.articleSlug)}`
+        : '/articles';
+    case 'series':
+      return state.seriesId
+        ? `/series/${encodeURIComponent(state.seriesId)}`
+        : '/articles';
     case 'topic':
       return state.topicId && state.topicId !== 'all'
         ? `/topics/${encodeURIComponent(state.topicId)}`
